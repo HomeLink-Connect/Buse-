@@ -1,90 +1,47 @@
 rules_version = '2';
-// Offrez security rules.
-// 1) Replace the admin e-mail below with the REAL, verified mailbox(es) in CFG.ADMIN_EMAILS (core.js).
-// 2) Firebase Console -> Firestore Database -> Rules -> paste -> Publish.
+// Offrez rules for the original collections. Paste in Firebase console > Firestore > Rules > Publish.
+// Your separate verification system should use the Firebase Admin SDK (it bypasses these rules)
+// to read vfiles and to set landlords/{id}.verified = true.
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function signedIn() { return request.auth != null; }
-    function verified() { return signedIn() && request.auth.token.email_verified == true; }
-    function isAdmin() { return verified() && request.auth.token.email in ['CHANGE-ME@example.com']; }
-    function isMe(uid) { return signedIn() && request.auth.uid == uid; }
-    function unchanged(keys) { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(keys); }
-    function landlordApproved() {
-      return exists(/databases/$(database)/documents/verifications/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/verifications/$(request.auth.uid)).data.status == 'approved';
-    }
+    function mine(id) { return signedIn() && request.auth.uid == id; }
+    function verifiedMail() { return signedIn() && request.auth.token.email_verified == true; }
 
-    // Personal profiles: private to the owner (and admins).
-    match /profiles/{uid} {
-      allow read: if isMe(uid) || isAdmin();
-      allow create: if isMe(uid) && request.resource.data.role in ['student', 'landlord'];
-      allow update: if (isMe(uid) && unchanged(['role', 'suspended'])) || isAdmin();
-      allow delete: if isMe(uid) || isAdmin();
-    }
-
-    // One account per Student ID. Lookup by exact ID only (no listing).
-    match /studentIds/{rid} {
-      allow get: if signedIn();
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
-    }
-
-    // Listings: students see approved ones only. Only ID-verified landlords can create them.
-    match /properties/{pid} {
-      allow read: if signedIn() && (resource.data.approved == true || resource.data.landlordId == request.auth.uid || isAdmin());
-      allow create: if verified() && landlordApproved()
-                    && request.resource.data.landlordId == request.auth.uid
-                    && request.resource.data.approved == false
-                    && request.resource.data.landlordVerified == false;
-      allow update: if isAdmin() || (verified() && resource.data.landlordId == request.auth.uid
-                    && unchanged(['approved', 'landlordId', 'landlordVerified']));
-      allow delete: if isAdmin() || (verified() && resource.data.landlordId == request.auth.uid);
-    }
-
-    // Landlord safety verification (KYC). Landlord can submit; only admins can approve/reject.
-    match /verifications/{uid} {
-      allow read: if isMe(uid) || isAdmin();
-      allow create, update: if (verified() && isMe(uid) && request.resource.data.status == 'pending') || isAdmin();
-      allow delete: if isAdmin();
-    }
-    // Document images: visible ONLY to the uploader and admins.
-    match /vfiles/{fid} {
-      allow read: if isAdmin() || (signedIn() && resource.data.landlordId == request.auth.uid);
-      allow create, update: if verified() && request.resource.data.landlordId == request.auth.uid;
-      allow delete: if isAdmin() || (signedIn() && resource.data.landlordId == request.auth.uid);
-    }
-
-    // Bookings and private messages: only the two people involved. Admins cannot read messages.
-    match /bookings/{bid} {
-      allow read: if signedIn() && (request.auth.uid in resource.data.parts || isAdmin());
-      allow create: if verified() && request.auth.uid in request.resource.data.parts
-                    && request.resource.data.studentId == request.auth.uid;
-      allow update: if verified() && (request.auth.uid in resource.data.parts || isAdmin());
-      allow delete: if isAdmin();
-    }
-    match /messages/{mid} {
-      allow read: if signedIn() && request.auth.uid in resource.data.parts;
-      allow create: if verified() && request.auth.uid in request.resource.data.parts
-                    && request.resource.data.from == request.auth.uid;
-      allow update: if verified() && request.auth.uid in resource.data.parts;
-      allow delete: if isAdmin();
-    }
-
-    match /reviews/{rid} {
+    match /students/{id} {
       allow read: if signedIn();
-      allow create, update: if verified() && request.resource.data.studentId == request.auth.uid;
-      allow delete: if isAdmin() || (signedIn() && resource.data.studentId == request.auth.uid);
+      allow create, update: if mine(id);
     }
-
-    match /reports/{rid} {
-      allow create: if verified() && request.resource.data.reporterId == request.auth.uid;
-      allow read, update, delete: if isAdmin();
+    match /landlords/{id} {
+      allow read: if signedIn();
+      allow create: if mine(id) && request.resource.data.verified == false;
+      allow update: if mine(id) && request.resource.data.verified == resource.data.verified;
     }
-
-    match /notifications/{nid} {
-      allow read, update, delete: if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if verified();
+    // Identity documents: only the landlord can write them; only the Admin SDK (your other system) can read them.
+    match /vfiles/{id} {
+      allow create, update: if signedIn() && request.resource.data.landlordId == request.auth.uid;
+      allow read: if signedIn() && resource.data.landlordId == request.auth.uid;
+      allow delete: if false;
+    }
+    match /properties/{id} {
+      allow read: if signedIn();
+      allow create: if verifiedMail() && request.resource.data.landlordId == request.auth.uid;
+      allow update, delete: if verifiedMail() && resource.data.landlordId == request.auth.uid;
+    }
+    match /bookings/{id} {
+      allow read: if signedIn();
+      allow create: if verifiedMail() && request.resource.data.studentId == request.auth.uid;
+      allow update: if verifiedMail() && (resource.data.studentId == request.auth.uid || resource.data.landlordId == request.auth.uid);
+    }
+    match /messages/{id} {
+      allow read: if signedIn() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
+      allow create: if verifiedMail() && request.resource.data.fromId == request.auth.uid;
+      allow update: if verifiedMail() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
+    }
+    match /reviews/{id} { allow read: if signedIn(); allow create, update: if verifiedMail() && request.resource.data.studentId == request.auth.uid; }
+    match /payments/{id} {
+      allow read: if signedIn() && (resource.data.studentId == request.auth.uid || resource.data.landlordId == request.auth.uid);
+      allow create: if verifiedMail() && request.resource.data.studentId == request.auth.uid;
     }
   }
 }

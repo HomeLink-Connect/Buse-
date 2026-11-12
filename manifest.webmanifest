@@ -1,23 +1,17 @@
 {
-  "id": "./",
-  "name": "Offrez — BUSE Student Accommodation",
+  "name": "Offrez — BUSE Off-Campus Accommodation",
   "short_name": "Offrez",
-  "description": "Find safe, verified off-campus accommodation near Bindura University of Science Education.",
-  "start_url": "./?source=pwa",
+  "description": "Find verified off-campus accommodation near Bindura University of Science Education.",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0b1f4d",
   "theme_color": "#0b1f4d",
-  "lang": "en",
-  "categories": ["education", "lifestyle", "business"],
+  "categories": ["education", "lifestyle"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ],
-  "shortcuts": [
-    { "name": "Explore rooms", "url": "./#/browse", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Messages", "url": "./#/messages", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

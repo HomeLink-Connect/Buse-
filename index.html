@@ -1,26 +1,583 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Offrez — Student Accommodation</title>
-<meta name="description" content="Find safe, ID-verified off-campus accommodation near Bindura University of Science Education (BUSE).">
-<meta name="theme-color" content="#0b1f4d">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" href="icons/favicon-32.png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Offrez">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="format-detection" content="telephone=no">
-<script>try{var t=localStorage.getItem("offrez_theme");if(t&&t!=="auto")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
-<link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1f4d"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/favicon-32.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<title>Offrez — BUSE Off-Campus Accommodation</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+  import {
+    getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail,
+    setPersistence, browserLocalPersistence, fetchSignInMethodsForEmail,
+    updateProfile, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
+    getRedirectResult, EmailAuthProvider, linkWithCredential
+  } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+  import {
+    getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, onSnapshot,
+    serverTimestamp, query, where
+  } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC-5jORGiQdm1nAew2Cz7L4j55flqb0rhM",
+    authDomain: "buse-offrez.firebaseapp.com",
+    projectId: "buse-offrez",
+    storageBucket: "buse-offrez.firebasestorage.app",
+    messagingSenderId: "937985120960",
+    appId: "1:937985120960:web:38c1ee47e0d56e1f606b25"
+  };
+
+  (async () => {
+    try {
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+
+      // Force persistent (localStorage-backed) sessions. This is critical on
+      // Android/mobile browsers, where the SDK can otherwise default to
+      // in-memory persistence in some embedded/WebView contexts and silently
+      // "forget" the signed-in user as soon as the page reloads. We wait for
+      // this to finish before letting the rest of the app start, so no login
+      // attempt can race ahead of it.
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+      } catch (e) {
+        console.warn("Could not set Firebase Auth persistence:", e.message);
+      }
+
+      window._offrezAuth = auth;
+      window._offrezDB = db;
+      window._offrezFns = {
+        createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+        sendEmailVerification, sendPasswordResetEmail, fetchSignInMethodsForEmail, updateProfile, GoogleAuthProvider, signInWithPopup,
+        signInWithRedirect, getRedirectResult, EmailAuthProvider, linkWithCredential,
+        collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, onSnapshot, query, where
+      };
+      console.log("Offrez — Firebase connected (Auth + Firestore, project: buse-offrez)");
+      window.dispatchEvent(new Event('offrez-firebase-ready'));
+    } catch (e) {
+      const detail = (e && (e.code ? e.code + ' — ' + e.message : e.message)) || String(e);
+      console.error("Firebase failed to initialize — falling back to local-only storage:", e);
+      window._offrezFirebaseFailed = true;
+      window._offrezFirebaseInitError = detail;
+      // Show this on-screen too, not just the console — most people testing on
+      // a phone can't open dev tools, so a silent console.warn here means the
+      // real reason for a failed sign-in never reaches them.
+      window.addEventListener('DOMContentLoaded', () => {
+        const banner = document.createElement('div');
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#E53E3E;color:#fff;font:600 13px/1.5 sans-serif;padding:10px 16px;text-align:center;';
+        banner.innerHTML = 'Offrez couldn\'t connect to Firebase — running in local-only mode. Error: ' + detail;
+        document.body.prepend(banner);
+      }, { once: true });
+      window.dispatchEvent(new Event('offrez-firebase-ready'));
+    }
+  })();
+</script>
+
+<style>
+:root {
+  --navy: #0b1f4d;
+  --navy2: #122a63;
+  --navy3: #1a3a7a;
+  --gold: #F2B705;
+  --gold-light: #FFD54F;
+  --gold-dark: #C99A04;
+  --sun: #FFA500;
+  --brick: #A8763E;
+  --surface: #ffffff;
+  --bg: #F4F6FB;
+  --bg2: #EDF0F9;
+  --border: #E1E6F2;
+  --text: #1B2138;
+  --text-muted: #6B7390;
+  --text-soft: #94999cc;
+  --red: #E53E3E;
+  --red-pale: #FDECEC;
+  --green: #2EAF6E;
+  --green-pale: #E8F8EF;
+  --blue: #3B82F6;
+  --blue-pale: #EAF1FE;
+  --purple: #8B5CF6;
+  --purple-pale: #F1ECFE;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow-sm: 0 2px 10px rgba(11,31,77,0.07);
+  --shadow: 0 10px 34px rgba(11,31,77,0.12);
+  --shadow-lg: 0 22px 60px rgba(11,31,77,0.20);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Poppins',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; }
+img { max-width:100%; display:block; }
+button { font-family:inherit; }
+a { text-decoration:none; color:inherit; }
+.buse-logo-img { width:100%; height:100%; object-fit:contain; }
+
+/* ============================================================
+   LANDING / SPLASH GATE
+   ============================================================ */
+#splashGate {
+  min-height:100vh; display:flex; flex-direction:column;
+  background:linear-gradient(165deg,var(--navy) 0%, var(--navy3) 55%, var(--navy) 100%);
+  position:relative; overflow:hidden;
+}
+#splashGate::before {
+  content:''; position:absolute; inset:0;
+  background:
+    radial-gradient(circle at 85% 8%, rgba(242,183,5,0.18) 0%, transparent 45%),
+    radial-gradient(circle at 10% 90%, rgba(242,183,5,0.10) 0%, transparent 45%);
+  pointer-events:none;
+}
+.splash-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:20px 40px; position:relative; z-index:2; flex-wrap:wrap; gap:14px;
+}
+.splash-brand { display:flex; align-items:center; gap:13px; }
+.splash-brand-logo { width:46px; height:46px; }
+.splash-brand-text { font-family:'Playfair Display',serif; font-size:22px; font-weight:800; color:#fff; letter-spacing:0.5px; }
+.splash-brand-text span { color:var(--gold); }
+.splash-nav-actions { display:flex; gap:12px; flex-wrap:wrap; }
+.splash-hero {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  text-align:center; padding:50px 24px 70px; position:relative; z-index:2;
+}
+.splash-hero-inner { max-width:760px; }
+.splash-uni-logo { width:108px; height:108px; margin:0 auto 22px; filter:drop-shadow(0 10px 26px rgba(0,0,0,0.35)); }
+.splash-tagline { color:var(--gold); font-size:13px; letter-spacing:4px; text-transform:uppercase; font-weight:600; margin-bottom:14px; }
+.splash-title { font-family:'Playfair Display',serif; font-size:48px; line-height:1.15; font-weight:800; color:#fff; margin-bottom:18px; }
+.splash-title span { color:var(--gold); }
+.splash-sub { color:rgba(255,255,255,0.78); font-size:16px; line-height:1.7; margin-bottom:34px; }
+.splash-search {
+  background:#fff; border-radius:60px; padding:8px 8px 8px 22px;
+  display:flex; align-items:center; gap:10px; max-width:560px; margin:0 auto 28px;
+  box-shadow:var(--shadow-lg); flex-wrap:wrap;
+}
+.splash-search input { flex:1; border:none; outline:none; font-family:inherit; font-size:14px; padding:10px 0; min-width:140px; }
+.splash-search button { background:linear-gradient(135deg,var(--gold),var(--gold-dark)); color:var(--navy); border:none; border-radius:50px; padding:13px 26px; font-weight:700; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all 0.25s; }
+.splash-search button:hover { transform:translateY(-1px); box-shadow:0 8px 20px rgba(242,183,5,0.4); }
+.splash-stats { display:flex; gap:36px; justify-content:center; flex-wrap:wrap; margin-top:10px; }
+.splash-stat { text-align:center; }
+.splash-stat-num { font-family:'Playfair Display',serif; font-size:30px; font-weight:800; color:var(--gold); }
+.splash-stat-label { font-size:11.5px; color:rgba(255,255,255,0.65); text-transform:uppercase; letter-spacing:1.5px; margin-top:2px; }
+
+/* Generic buttons */
+.btn { display:inline-flex; align-items:center; gap:8px; padding:11px 22px; border-radius:10px; font-size:13.5px; font-weight:600; cursor:pointer; border:none; transition:all 0.22s; letter-spacing:0.2px; white-space:nowrap; }
+.btn-gold { background:linear-gradient(135deg,var(--gold),var(--gold-dark)); color:var(--navy); }
+.btn-gold:hover { transform:translateY(-1px); box-shadow:0 8px 22px rgba(242,183,5,0.35); }
+.btn-navy { background:linear-gradient(135deg,var(--navy3),var(--navy)); color:#fff; }
+.btn-navy:hover { transform:translateY(-1px); box-shadow:0 8px 22px rgba(11,31,77,0.3); }
+.btn-outline-light { background:rgba(255,255,255,0.08); border:1.5px solid rgba(255,255,255,0.4); color:#fff; }
+.btn-outline-light:hover { background:rgba(255,255,255,0.16); }
+.btn-outline { background:transparent; border:1.5px solid var(--border); color:var(--text-muted); }
+.btn-outline:hover { border-color:var(--navy3); color:var(--navy3); }
+.btn-green { background:linear-gradient(135deg,var(--green),#1f9456); color:#fff; }
+.btn-green:hover { transform:translateY(-1px); box-shadow:0 8px 22px rgba(46,175,110,0.35); }
+.btn-red { background:linear-gradient(135deg,var(--red),#c53030); color:#fff; }
+.btn-blue { background:linear-gradient(135deg,var(--blue),#2563eb); color:#fff; }
+.btn-purple { background:linear-gradient(135deg,var(--purple),#7c3aed); color:#fff; }
+.btn-sm { padding:7px 14px; font-size:12px; }
+.btn-block { width:100%; justify-content:center; }
+.btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+/* ============================================================
+   ROLE PICKER MODAL (login/register entry)
+   ============================================================ */
+.role-cards { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; margin-top:36px; }
+.role-card {
+  background:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.18);
+  border-radius:18px; padding:30px 28px; width:220px; cursor:pointer; transition:all 0.25s; text-align:center;
+}
+.role-card:hover { transform:translateY(-6px); background:rgba(255,255,255,0.1); border-color:var(--gold); }
+.role-card i { font-size:30px; color:var(--gold); margin-bottom:14px; }
+.role-card h3 { font-family:'Playfair Display',serif; color:#fff; font-size:16px; margin-bottom:6px; }
+.role-card p { color:rgba(255,255,255,0.6); font-size:12px; line-height:1.5; }
+
+/* ============================================================
+   AUTH SCREENS (Student / Landlord / Admin)
+   ============================================================ */
+.auth-screen {
+  position:fixed; inset:0; z-index:9999; display:none;
+  align-items:center; justify-content:center; padding:20px;
+  background:linear-gradient(165deg,var(--navy) 0%, var(--navy3) 60%, var(--navy) 100%);
+}
+.auth-screen.show { display:flex; }
+.auth-box {
+  background:#fff; border-radius:22px; width:430px; max-width:94vw;
+  padding:42px 38px; box-shadow:var(--shadow-lg); position:relative;
+  animation:authIn 0.35s cubic-bezier(.34,1.56,.64,1); max-height:92vh; overflow-y:auto;
+}
+@keyframes authIn { from{opacity:0;transform:translateY(28px) scale(0.97)} to{opacity:1;transform:none} }
+.auth-back { position:absolute; top:18px; left:18px; background:none; border:none; color:var(--text-muted); font-size:14px; cursor:pointer; }
+.auth-back:hover { color:var(--navy); }
+.auth-logo { width:62px; height:62px; margin:0 auto 12px; }
+.auth-title { font-family:'Playfair Display',serif; font-size:21px; font-weight:800; color:var(--navy); text-align:center; }
+.auth-sub { font-size:12.5px; color:var(--text-muted); text-align:center; margin-bottom:26px; margin-top:3px; }
+.auth-tabs { display:flex; background:var(--bg2); border-radius:11px; padding:4px; margin-bottom:22px; }
+.auth-tab-btn { flex:1; text-align:center; padding:9px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--text-muted); cursor:pointer; transition:all 0.2s; }
+.auth-tab-btn.active { background:#fff; color:var(--navy); box-shadow:var(--shadow-sm); }
+.field { margin-bottom:14px; }
+.field label { display:block; font-size:11.5px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+.field-icon-wrap { position:relative; }
+.field-icon-wrap i { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--navy3); font-size:13px; }
+.input, select.input, textarea.input {
+  width:100%; background:var(--bg2); border:1.5px solid transparent; border-radius:10px;
+  padding:12px 14px; font-family:inherit; font-size:13.5px; color:var(--text); outline:none; transition:all 0.2s;
+}
+.input.with-icon { padding-left:38px; }
+.input:focus { border-color:var(--navy3); background:#fff; box-shadow:0 0 0 3px rgba(26,58,122,0.08); }
+.field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.auth-error { background:var(--red-pale); color:var(--red); font-size:12px; padding:10px 13px; border-radius:9px; margin-bottom:14px; display:none; align-items:center; gap:8px; }
+.auth-foot-link { text-align:center; font-size:12.5px; color:var(--text-muted); margin-top:16px; }
+.auth-foot-link a { color:var(--navy3); font-weight:600; cursor:pointer; }
+.auth-link-sm { font-size:12px; color:var(--navy3); font-weight:600; cursor:pointer; }
+.auth-link-sm:hover { text-decoration:underline; }
+.auth-notice { background:var(--blue-pale); color:#1d4ed8; font-size:12px; padding:10px 13px; border-radius:9px; margin-bottom:14px; line-height:1.5; }
+
+/* ============================================================
+   PROPERTY PHOTO UPLOAD WIDGET
+   ============================================================ */
+.photo-upload-row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:6px; }
+.photo-upload-btn-wrap { display:flex; align-items:center; gap:11px; flex-wrap:wrap; position:relative; }
+.photo-upload-btn-wrap input[type="file"] { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; left:0; top:0; }
+.photo-upload-btn {
+  display:inline-flex; align-items:center; gap:8px;
+  background:linear-gradient(135deg,var(--gold),var(--gold-dark));
+  color:var(--navy); font-weight:700; font-size:13px;
+  padding:11px 20px; border-radius:10px; cursor:pointer;
+  box-shadow:0 4px 14px rgba(242,183,5,0.3); transition:all 0.22s;
+}
+.photo-upload-btn:hover { transform:translateY(-2px); box-shadow:0 7px 20px rgba(242,183,5,0.45); }
+.photo-upload-filename { font-size:12px; color:var(--text-muted); }
+.photo-thumb-strip { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.photo-thumb { position:relative; width:84px; height:84px; border-radius:10px; overflow:hidden; border:1px solid var(--border); box-shadow:var(--shadow-sm); }
+.photo-thumb img { width:100%; height:100%; object-fit:cover; }
+.photo-thumb .photo-remove-btn {
+  position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%;
+  background:rgba(11,31,77,0.75); color:#fff; border:none; display:flex; align-items:center; justify-content:center;
+  font-size:10px; cursor:pointer;
+}
+.photo-thumb .photo-cover-badge { position:absolute; bottom:0; left:0; right:0; background:rgba(11,31,77,0.75); color:var(--gold-light); font-size:8.5px; text-align:center; padding:2px 0; text-transform:uppercase; letter-spacing:0.5px; }
+
+/* ============================================================
+   PROPERTY GALLERY (detail modal)
+   ============================================================ */
+.gallery-main { height:240px; border-radius:12px; overflow:hidden; margin-bottom:10px; background:linear-gradient(135deg,var(--navy3),var(--navy)); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.3); font-size:50px; position:relative; }
+.gallery-main img { width:100%; height:100%; object-fit:cover; }
+.gallery-thumbs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.gallery-thumb { width:58px; height:58px; border-radius:8px; overflow:hidden; cursor:pointer; border:2px solid transparent; opacity:0.7; transition:all 0.2s; }
+.gallery-thumb img { width:100%; height:100%; object-fit:cover; }
+.gallery-thumb.active { border-color:var(--gold-dark); opacity:1; }
+.gallery-thumb:hover { opacity:1; }
+
+/* ============================================================
+   CHAT THREAD ENHANCEMENTS
+   ============================================================ */
+.chat-bubble-row { display:flex; margin-bottom:9px; }
+.chat-bubble { max-width:75%; padding:9px 13px; border-radius:14px; font-size:13px; position:relative; }
+.chat-bubble.mine { background:var(--navy3); color:#fff; border-bottom-right-radius:4px; }
+.chat-bubble.theirs { background:var(--bg2); color:var(--text); border-bottom-left-radius:4px; }
+.chat-bubble .chat-time { font-size:10px; opacity:0.7; margin-top:4px; }
+.chat-bubble.system { background:#FFF3D6; color:var(--gold-dark); font-weight:600; text-align:center; margin:0 auto; border-radius:10px; }
+.chat-typing-row { display:flex; gap:10px; align-items:flex-end; }
+.chat-quick-replies { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:10px; }
+.chat-quick-btn { background:var(--bg2); border:1px solid var(--border); border-radius:20px; padding:6px 13px; font-size:11.5px; cursor:pointer; color:var(--navy3); transition:all 0.2s; }
+.chat-quick-btn:hover { background:var(--navy3); color:#fff; }
+
+/* ============================================================
+   PAYMENT MODAL
+   ============================================================ */
+.payment-method-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:16px; }
+.payment-method-card { border:2px solid var(--border); border-radius:12px; padding:14px 10px; text-align:center; cursor:pointer; transition:all 0.2s; }
+.payment-method-card.selected { border-color:var(--gold-dark); background:#FFF8E5; }
+.payment-method-card i { font-size:22px; color:var(--navy3); margin-bottom:8px; display:block; }
+.payment-method-card.selected i { color:var(--gold-dark); }
+.payment-method-card span { font-size:12px; font-weight:600; color:var(--text); }
+.payment-summary-box { background:var(--bg2); border-radius:12px; padding:16px; margin-bottom:16px; }
+.payment-summary-row { display:flex; justify-content:space-between; font-size:13px; padding:6px 0; }
+.payment-summary-row.total { font-weight:800; font-size:16px; border-top:1px solid var(--border); margin-top:6px; padding-top:10px; color:var(--navy); }
+.payment-success-box { text-align:center; padding:20px 10px; }
+.payment-success-box i { font-size:54px; color:var(--green); margin-bottom:14px; }
+.payment-success-box h3 { font-family:'Playfair Display',serif; color:var(--navy); margin-bottom:6px; }
+.payment-receipt-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--border); font-size:12.5px; }
+
+/* ============================================================
+   APP SHELL (student / landlord / admin)
+   ============================================================ */
+.app-shell { display:none; min-height:100vh; background:var(--bg); }
+.app-shell.show { display:block; }
+.app-topbar {
+  background:var(--navy); color:#fff; padding:14px 26px;
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:200; flex-wrap:wrap; gap:12px;
+  box-shadow:0 2px 14px rgba(0,0,0,0.15);
+}
+.app-topbar-left { display:flex; align-items:center; gap:14px; }
+.app-topbar-logo { width:36px; height:36px; }
+.app-topbar-title { font-family:'Playfair Display',serif; font-weight:800; font-size:18px; }
+.app-topbar-title span { color:var(--gold); }
+.app-topbar-nav { display:flex; gap:6px; flex-wrap:wrap; }
+.app-nav-link { padding:9px 15px; border-radius:9px; font-size:13px; font-weight:500; color:rgba(255,255,255,0.78); cursor:pointer; transition:all 0.2s; }
+.app-nav-link:hover { background:rgba(255,255,255,0.08); color:#fff; }
+.app-nav-link.active { background:var(--gold); color:var(--navy); font-weight:700; }
+.app-topbar-right { display:flex; align-items:center; gap:12px; }
+.app-user-chip { display:flex; align-items:center; gap:9px; background:rgba(255,255,255,0.08); border-radius:25px; padding:7px 14px; font-size:12.5px; }
+.app-user-chip i { color:var(--gold); }
+.app-logout-btn { background:none; border:1px solid rgba(255,255,255,0.3); color:#fff; border-radius:8px; padding:8px 12px; cursor:pointer; font-size:12px; transition:all 0.2s; }
+.app-logout-btn:hover { background:rgba(255,255,255,0.1); }
+.app-mobile-toggle { display:none; background:none; border:none; color:#fff; font-size:19px; cursor:pointer; }
+
+.app-content { padding:26px; max-width:1320px; margin:0 auto; }
+.app-page { display:none; animation:appPageIn 0.3s ease; }
+.app-page.active { display:block; }
+@keyframes appPageIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+.page-head { margin-bottom:22px; }
+.page-head h1 { font-family:'Playfair Display',serif; font-size:25px; font-weight:800; color:var(--navy); }
+.page-head h1 span { color:var(--gold-dark); }
+.page-head p { color:var(--text-muted); font-size:13.5px; margin-top:4px; }
+
+/* Filters bar */
+.filters-bar {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:18px 20px; margin-bottom:22px; display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;
+  box-shadow:var(--shadow-sm);
+}
+.filter-field { display:flex; flex-direction:column; gap:5px; min-width:140px; }
+.filter-field label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); }
+.filter-field select, .filter-field input { background:var(--bg2); border:1px solid transparent; border-radius:8px; padding:9px 11px; font-size:13px; font-family:inherit; outline:none; }
+.filter-field select:focus, .filter-field input:focus { border-color:var(--navy3); background:#fff; }
+
+/* Listing grid + card */
+.listing-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:20px; }
+.listing-card {
+  background:var(--surface); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm);
+  transition:all 0.25s; cursor:pointer; border:1px solid var(--border);
+}
+.listing-card:hover { transform:translateY(-4px); box-shadow:var(--shadow); }
+.listing-thumb {
+  height:160px; background:linear-gradient(135deg,var(--navy3),var(--navy)); position:relative;
+  display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.35); font-size:38px;
+}
+.listing-thumb .badge-row { position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between; }
+.listing-badge { font-size:10px; font-weight:700; padding:4px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:0.3px; }
+.badge-verified { background:var(--green); color:#fff; }
+.badge-unverified { background:rgba(255,255,255,0.25); color:#fff; }
+.listing-fav-btn { background:rgba(255,255,255,0.85); border:none; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--red); font-size:14px; }
+.listing-body { padding:16px; }
+.listing-price { font-family:'Playfair Display',serif; font-size:19px; font-weight:800; color:var(--navy); }
+.listing-price span { font-size:11px; color:var(--text-muted); font-weight:400; }
+.listing-title { font-size:13.5px; font-weight:600; margin:5px 0 3px; color:var(--text); }
+.listing-meta { font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.listing-meta i { color:var(--navy3); }
+.listing-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:9px; }
+.listing-tag { background:var(--bg2); color:var(--text-muted); font-size:10px; padding:3px 8px; border-radius:6px; }
+.listing-rating { display:flex; align-items:center; gap:4px; font-size:12px; color:var(--gold-dark); font-weight:700; margin-top:8px; }
+
+/* Cards / panels generic */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:22px; margin-bottom:20px; box-shadow:var(--shadow-sm); }
+.card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+.card-title { font-family:'Playfair Display',serif; font-size:16px; font-weight:700; color:var(--navy); display:flex; align-items:center; gap:9px; }
+
+.stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:16px; margin-bottom:24px; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow-sm); position:relative; overflow:hidden; }
+.stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--gold),var(--gold-light)); }
+.stat-card.green::before { background:linear-gradient(90deg,var(--green),#1f9456); }
+.stat-card.blue::before { background:linear-gradient(90deg,var(--blue),#2563eb); }
+.stat-card.purple::before { background:linear-gradient(90deg,var(--purple),#7c3aed); }
+.stat-card.red::before { background:linear-gradient(90deg,var(--red),#c53030); }
+.stat-icon { width:42px; height:42px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:17px; margin-bottom:11px; background:var(--bg2); color:var(--navy3); }
+.stat-value { font-family:'Playfair Display',serif; font-size:25px; font-weight:800; color:var(--navy); }
+.stat-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
+
+table.data-table { width:100%; border-collapse:collapse; font-size:13px; }
+table.data-table thead tr { background:var(--bg2); }
+table.data-table th { padding:11px 13px; text-align:left; color:var(--navy3); font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; white-space:nowrap; }
+table.data-table td { padding:11px 13px; border-bottom:1px solid var(--border); vertical-align:middle; }
+table.data-table tr:hover td { background:var(--bg2); }
+.empty-row { text-align:center; color:var(--text-muted); padding:32px; }
+.empty-row i { font-size:30px; display:block; margin-bottom:10px; color:var(--border); }
+
+.badge-pill { display:inline-block; padding:3px 11px; border-radius:20px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
+.pill-green { background:var(--green-pale); color:var(--green); }
+.pill-red { background:var(--red-pale); color:var(--red); }
+.pill-blue { background:var(--blue-pale); color:var(--blue); }
+.pill-purple { background:var(--purple-pale); color:var(--purple); }
+.pill-gold { background:#FFF3D6; color:var(--gold-dark); }
+
+.tabs-row { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:20px; flex-wrap:wrap; }
+.tab-btn { padding:10px 16px; background:none; border:none; font-size:13px; font-weight:500; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.tab-btn.active { color:var(--navy3); border-bottom-color:var(--navy3); font-weight:700; }
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+
+/* Modal */
+.modal-overlay2 { position:fixed; inset:0; background:rgba(11,31,77,0.55); z-index:600; display:none; align-items:center; justify-content:center; padding:18px; backdrop-filter:blur(3px); }
+.modal-overlay2.open { display:flex; }
+.modal2 { background:#fff; border-radius:18px; width:760px; max-width:96vw; max-height:92vh; overflow-y:auto; box-shadow:var(--shadow-lg); animation:authIn 0.25s ease; }
+.modal2-wide { width:920px; }
+.modal2-header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.modal2-title { font-family:'Playfair Display',serif; font-size:17px; font-weight:800; color:var(--navy); }
+.modal2-close { background:var(--bg2); border:none; border-radius:50%; width:32px; height:32px; cursor:pointer; color:var(--text-muted); font-size:14px; }
+.modal2-close:hover { background:var(--red-pale); color:var(--red); }
+.modal2-body { padding:24px; }
+.modal2-footer { padding:16px 24px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+
+.alert-box { padding:11px 15px; border-radius:9px; font-size:13px; margin-bottom:14px; display:flex; align-items:center; gap:9px; }
+.alert-success { background:var(--green-pale); color:var(--green); }
+.alert-error { background:var(--red-pale); color:var(--red); }
+.alert-info { background:var(--blue-pale); color:var(--blue); }
+
+.star-rating { color:var(--gold-dark); }
+.fav-btn-active { color:var(--red); }
+
+@media(max-width:900px) {
+  .app-topbar-nav { display:none; }
+  .app-mobile-toggle { display:block; }
+  .app-topbar-nav.mobile-open { display:flex; flex-direction:column; position:absolute; top:62px; left:0; right:0; background:var(--navy); padding:10px; z-index:300; }
+}
+@media(max-width:600px) {
+  .app-content { padding:14px; }
+  .filters-bar { flex-direction:column; align-items:stretch; }
+  .splash-title { font-size:32px; }
+  .role-cards { flex-direction:column; align-items:center; }
+  .stat-grid { grid-template-columns:1fr; }
+  .modal2-header, .modal2-body, .modal2-footer { padding-left:16px; padding-right:16px; }
+}
+@media(max-width:480px) {
+  .splash-hero { padding:34px 16px 46px; }
+  .splash-title { font-size:26px; }
+  .splash-sub { font-size:14px; margin-bottom:26px; }
+  .splash-search {
+    flex-direction:column; align-items:stretch; border-radius:20px;
+    padding:14px; gap:10px; max-width:100%;
+  }
+  .splash-search input { padding:10px 12px; border:1px solid var(--border); border-radius:12px; min-width:0; }
+  .splash-search button { justify-content:center; border-radius:12px; padding:12px 20px; width:100%; }
+  .splash-stats { gap:22px; }
+  .splash-stat-num { font-size:24px; }
+}
+@media print {
+  .app-topbar, .modal-overlay2 .modal2-footer { display:none !important; }
+}
+
+/* ===== MODERN FORMS (stable, responsive, no layout jumps) ===== */
+.auth-screen{background:radial-gradient(900px 500px at 15% 10%,rgba(242,183,5,.14),transparent 60%),radial-gradient(800px 500px at 90% 95%,rgba(59,130,246,.22),transparent 60%),linear-gradient(165deg,var(--navy),var(--navy3) 60%,var(--navy))}
+.auth-box{width:440px;padding:40px 36px 32px;border-radius:24px;animation:authFade .3s ease;scrollbar-gutter:stable;overscroll-behavior:contain}
+@keyframes authFade{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.auth-back{display:inline-flex;align-items:center;gap:6px;font:600 12.5px Poppins,sans-serif;padding:6px 10px;border-radius:8px;top:14px;left:14px}
+.auth-back:hover{background:var(--bg2)}
+.auth-logo{margin-top:8px}
+.auth-tabs{position:relative;padding:4px;border-radius:12px;isolation:isolate}
+.auth-tabs::before{content:"";position:absolute;z-index:-1;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);background:#fff;border-radius:9px;box-shadow:var(--shadow-sm);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.auth-tabs[data-mode="register"]::before{transform:translateX(100%)}
+.auth-tab-btn,.auth-tab-btn.active{background:none!important;box-shadow:none!important;padding:10px}
+.auth-tab-btn.active{color:var(--navy)}
+#studentLoginForm,#studentRegisterForm,#landlordLoginForm,#landlordRegisterForm{animation:authFade .25s ease}
+.field{margin-bottom:16px}
+.field label{text-transform:none;letter-spacing:.1px;font-size:12.5px;color:var(--text);font-weight:600;margin-bottom:7px}
+.input,select.input,textarea.input{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:13px 14px;min-height:48px;font-size:14px;box-shadow:0 1px 2px rgba(11,31,77,.04)}
+.input::placeholder{color:#a3aac2}
+.input:hover{border-color:#c9d1e6}
+.input:focus{border-color:var(--navy3);box-shadow:0 0 0 4px rgba(26,58,122,.12)}
+select.input{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%236B7390' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 14px center}
+textarea.input{resize:vertical;min-height:90px;line-height:1.5}
+.input.with-icon{padding-left:42px}
+.field-icon-wrap i{left:15px;font-size:14px;opacity:.75}
+.pw-wrap{position:relative}.pw-wrap .input{padding-right:46px}
+.pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:none;background:none;border-radius:9px;color:var(--text-muted);cursor:pointer}
+.pw-eye:hover{background:var(--bg2);color:var(--navy3)}
+.field-icon-wrap .pw-eye i{position:static;transform:none;color:inherit;opacity:1}
+.auth-box .btn-block{min-height:50px;border-radius:12px;font-size:14.5px;margin-top:4px}
+.btn.loading{pointer-events:none;opacity:.75}
+.btn.loading::after,.g-btn.loading::after{content:"";width:15px;height:15px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;margin-left:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:11px;min-height:50px;background:#fff;border:1.5px solid var(--border);border-radius:12px;font:600 14px Poppins,sans-serif;color:#3c4043;cursor:pointer;transition:all .2s;box-shadow:0 1px 2px rgba(11,31,77,.06)}
+.g-btn:hover{background:#f8faff;border-color:#c9d1e6;box-shadow:0 4px 14px rgba(11,31,77,.1);transform:translateY(-1px)}
+.g-btn.loading{pointer-events:none;opacity:.7}
+.auth-or{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--text-muted);font-size:12px}
+.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--border)}
+.gp-who{display:flex;align-items:center;gap:12px;background:var(--bg2);border-radius:14px;padding:12px 14px;margin-bottom:18px}
+.gp-who img{width:42px;height:42px;border-radius:50%;object-fit:cover;background:#fff}
+.gp-who b{display:block;font-size:13.5px;color:var(--navy)}.gp-who span{font-size:12px;color:var(--text-muted);word-break:break-all}
+.gp-hint{font-size:11.5px;color:var(--text-muted);margin-top:6px;line-height:1.5}
+.auth-error,.auth-notice{border-radius:12px;padding:11px 14px}
+.modal2{display:flex;flex-direction:column;overflow:hidden;border-radius:20px}
+.modal2-body{overflow-y:auto;flex:1;overscroll-behavior:contain;scrollbar-gutter:stable}
+.modal2-header{background:linear-gradient(180deg,#fff,#fafbff)}
+.modal2-footer{background:#fafbff}
+.modal2-footer .btn{min-height:44px}
+@media(max-width:560px){
+ .auth-box{padding:34px 20px 26px;width:100%;border-radius:22px}
+ .input,select.input,textarea.input{font-size:16px}
+}
+@media(max-width:420px){.field-row{grid-template-columns:1fr;gap:0}}
+@media(max-width:600px){.modal-overlay2{align-items:flex-end;padding:0}.modal2{width:100%!important;max-width:100%;border-radius:20px 20px 0 0;max-height:94vh}}
+
+/* ===== v2: modern icons, forms, verification, install ===== */
+i[data-ic]{display:inline-flex;align-items:center;justify-content:center;width:1.1em;height:1.1em;vertical-align:-.17em;font-style:normal;line-height:1;flex:none}
+i[data-ic]>svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+i[data-ic]>svg use{pointer-events:none}
+.field-icon-wrap i[data-ic]{width:17px;height:17px;font-size:17px;opacity:.7;transition:.2s;pointer-events:none}
+.field-icon-wrap:focus-within>i[data-ic]{color:var(--navy3);opacity:1}
+.field-icon-wrap select.input{padding-left:42px}
+.field label em{font-style:normal;font-weight:500;font-size:11px;color:var(--text-muted);background:var(--bg2);border-radius:99px;padding:1px 8px;margin-left:6px}
+.field-err{display:none;color:#dc2626;font-size:12px;font-weight:500;margin-top:6px}
+.has-err>.field-err,.has-err .field-err{display:block}
+.field.has-err .input{border-color:#dc2626;box-shadow:0 0 0 4px rgba(220,38,38,.1)}
+.pw-meter{display:flex;gap:4px;margin-top:8px}.pw-meter span{flex:1;height:4px;border-radius:4px;background:var(--border);transition:.25s}
+.pw-meter[data-s="1"] span:nth-child(-n+1){background:#dc2626}.pw-meter[data-s="2"] span:nth-child(-n+2){background:#f59e0b}
+.pw-meter[data-s="3"] span:nth-child(-n+3){background:#84cc16}.pw-meter[data-s="4"] span{background:#16a34a}
+.pw-label{font-size:11.5px;color:var(--text-muted);min-height:14px;margin-top:4px;text-align:right}
+.check{display:flex;gap:11px;align-items:flex-start;font-size:12.5px;line-height:1.55;color:var(--text);margin:12px 0;cursor:pointer;position:relative}
+.check input{appearance:none;-webkit-appearance:none;flex:none;width:21px;height:21px;margin-top:1px;border:1.5px solid #c3cbe0;border-radius:7px;background:#fff;display:grid;place-content:center;cursor:pointer;transition:.15s}
+.check input:checked{background:var(--navy3);border-color:var(--navy3)}
+.check input:checked::after{content:"";width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.check input:focus-visible{box-shadow:0 0 0 4px rgba(26,58,122,.18)}
+.check a,.legal-link,.auth-box a[onclick]{color:var(--navy3);font-weight:600;text-decoration:underline;cursor:pointer}
+.check.has-err input{border-color:#dc2626}
+.kyc-note{display:flex;gap:12px;background:var(--blue-pale);color:#1d3f9a;border-radius:14px;padding:13px 15px;font-size:12.5px;line-height:1.55;margin-bottom:16px}
+.kyc-note i{font-size:20px;margin-top:2px}
+.kyc-sec{border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;background:#fff}
+.kyc-sec h4{font:700 14px Poppins,sans-serif;color:var(--navy);margin-bottom:12px}
+.kyc-hint{font-size:12px;color:var(--text-muted);margin:-6px 0 12px}
+.drop-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:520px){.drop-grid{grid-template-columns:1fr}}
+.drop{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:118px;padding:14px;text-align:center;border:1.5px dashed #b8c3de;border-radius:14px;background:var(--bg2);cursor:pointer;transition:.2s;text-transform:none;letter-spacing:0;font-weight:400}
+.drop:hover{border-color:var(--navy3);background:#eef3ff}
+.drop i{font-size:24px;color:var(--navy3)}.drop b{font-size:13px;color:var(--navy)}.drop span{font-size:11px;color:var(--text-muted)}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop.has{padding:6px;border-style:solid;border-color:var(--green)}
+.drop.has img{width:100%;max-height:120px;object-fit:cover;border-radius:10px}
+.drop-ok{position:absolute;left:10px;top:10px;background:var(--green);color:#fff;font:600 11px Poppins,sans-serif;border-radius:99px;padding:3px 9px;display:inline-flex;gap:4px;align-items:center}
+.vcard{display:flex;gap:14px;align-items:flex-start;border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid var(--border);background:#fff}
+.vcard>i{font-size:24px;margin-top:2px}.vcard b{font-size:14px;color:var(--navy)}.vcard p{font-size:12.5px;color:var(--text-muted);margin:3px 0 10px;line-height:1.5}
+.vcard.ok{background:#ecfdf3;border-color:#a7f3c4}.vcard.ok>i{color:#16a34a}
+.vcard.wait{background:#eff6ff;border-color:#bfdbfe}.vcard.wait>i{color:#2563eb}
+.vcard.warn{background:#fffbeb;border-color:#fde68a}.vcard.warn>i{color:#d97706}
+.vcard.bad{background:#fef2f2;border-color:#fecaca}.vcard.bad>i{color:#dc2626}
+.v2-vbanner:empty{display:none}
+.verify-ico{width:84px;height:84px;border-radius:50%;background:var(--blue-pale);color:var(--navy3);display:grid;place-items:center;margin:6px auto 16px;font-size:38px}
+#verifyScreen .auth-box{text-align:center}
+.link-btn{background:none;border:0;color:var(--navy3);font:600 13px Poppins,sans-serif;cursor:pointer;padding:10px;text-decoration:underline}
+.splash-foot{margin-top:auto;padding:22px 20px 26px;display:flex;flex-direction:column;align-items:center;gap:12px;color:rgba(255,255,255,.75);font-size:12.5px;text-align:center}
+.splash-foot nav{display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
+.splash-foot a{color:#fff;cursor:pointer;opacity:.85;text-decoration:underline}
+.install-btn{display:none;align-items:center;gap:7px}
+#heroLogoImg.splash-uni-logo{width:auto;height:auto;max-height:178px;max-width:250px;padding:12px 18px;background:#fff;border-radius:22px;object-fit:contain;display:block}
+.legal-body h4{font:700 15px Poppins,sans-serif;color:var(--navy);margin:20px 0 6px}
+.legal-body p,.legal-body li{font-size:13.5px;line-height:1.7;margin-bottom:8px;color:var(--text)}
+.legal-body ul,.legal-body ol{padding-left:22px}
+.legal-meta{color:var(--text-muted)!important;font-size:12.5px!important}
+#v2toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,30px);background:var(--navy);color:#fff;padding:12px 18px;border-radius:14px;font:500 13.5px Poppins,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:.3s;z-index:99999;max-width:92vw;display:flex;gap:8px;align-items:center}
+#v2toast.show{opacity:1;transform:translate(-50%,0)}#v2toast.error{background:#b91c1c}
+#v2net{position:fixed;top:0;left:0;right:0;background:#92400e;color:#fff;text-align:center;font-size:12.5px;padding:7px;z-index:99998;transform:translateY(-100%);transition:.3s}
+#v2net.show{transform:none}
+</style>
 </head>
 <body>
-<a class="skip" href="#view">Skip to content</a>
-
-<!-- Icon sprite (inline: no external icon CDN, works on any network) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
 <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
 <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
@@ -96,26 +653,2391 @@
 <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.600 5.600 12.800 12.800"/></symbol>
 <symbol id="i-child" viewBox="0 0 24 24"><circle cx="12" cy="6.500" r="3"/><path d="M8 21v-5l-2-3M16 21v-5l2-3M8 13h8M10 21v-5M14 21v-5"/></symbol>
 <symbol id="i-badge" viewBox="0 0 24 24"><path d="M12 2.500 14.400 4.600l3.200-.1.800 3.100 2.700 1.800-1.100 3 1.100 3-2.700 1.800-.8 3.100-3.200-.1L12 21.500l-2.400-2.100-3.200.1-.8-3.100-2.700-1.800 1.100-3-1.100-3 2.700-1.800.8-3.100 3.200.1z"/><path d="m9 12 2 2 4-4"/></symbol>
-</svg>
+<symbol id="i-login" viewBox="0 0 24 24"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 8l4 4-4 4M14 12H3"/></symbol><symbol id="i-user-plus" viewBox="0 0 24 24"><circle cx="10" cy="8" r="4"/><path d="M2.5 21a7.5 7.5 0 0 1 13 0M19 8v6M16 11h6"/></symbol></svg>
+<div id="v2net">You are offline. Showing saved data.</div>
 
-<div id="app">
-  <div class="splash" role="status" aria-live="polite">
-    <img src="icons/buse-crest.png" alt="" width="84" height="106">
-    <div class="spin"></div>
-    <p>Loading Offrez…</p>
+<!-- ============================================================
+     SPLASH / LANDING GATE
+     ============================================================ -->
+<div id="splashGate">
+  <div class="splash-nav">
+    <div class="splash-brand">
+      <div class="splash-brand-logo"><img class="buse-logo-img" id="navLogoImg" alt="BUSE"></div>
+      <div class="splash-brand-text">Off<span>rez</span></div>
+    </div>
+    <div class="splash-nav-actions">
+      <button class="btn btn-outline-light btn-sm install-btn" onclick="installApp()"><i class="fa-solid fa-download"></i> Install</button>
+      <button class="btn btn-outline-light btn-sm" onclick="openRolePicker('login')"><i class="fa-solid fa-right-to-bracket"></i> Log In</button>
+      <button class="btn btn-gold btn-sm" onclick="openRolePicker('register')"><i class="fa-solid fa-user-plus"></i> Get Started</button>
+    </div>
+  </div>
+
+  <div class="splash-hero">
+    <div class="splash-hero-inner">
+      <img class="buse-logo-img splash-uni-logo" id="heroLogoImg" alt="Bindura University of Science Education">
+      <div class="splash-tagline">Bindura University of Science Education</div>
+      <div class="splash-title">Find your perfect <span>off-campus home</span>, stress-free.</div>
+      <div class="splash-sub">Offrez connects BUSE students with verified landlords across Bindura — Shashi View, Clusters, Chipindura, Administrative Campus — and Kadoma — Rimuka, Ngezi, Waverley, Mbizo. Browse, compare, book, and move in with confidence.</div>
+      <div class="splash-search">
+        <i class="fa-solid fa-magnifying-glass" style="color:var(--text-muted);margin-left:6px;"></i>
+        <input type="text" id="splashSearchInput" placeholder="Search by area, e.g. Shashi View (Bindura), Rimuka (Kadoma)...">
+        <button onclick="splashSearch()"><i class="fa-solid fa-house"></i> Find Rooms</button>
+      </div>
+      <div class="role-cards">
+        <div class="role-card" onclick="openAuth('student','register')">
+          <i class="fa-solid fa-graduation-cap"></i>
+          <h3>I'm a Student</h3>
+          <p>Browse listings, save favourites, message landlords &amp; book your room</p>
+        </div>
+        <div class="role-card" onclick="openAuth('landlord','register')">
+          <i class="fa-solid fa-house-chimney-user"></i>
+          <h3>I'm a Landlord</h3>
+          <p>List your property, manage bookings &amp; reach verified BUSE students</p>
+        </div>
+</div>
+      <div class="splash-stats">
+        <div class="splash-stat"><div class="splash-stat-num" id="stat-listings">0</div><div class="splash-stat-label">Listings</div></div>
+        <div class="splash-stat"><div class="splash-stat-num" id="stat-landlords">0</div><div class="splash-stat-label">Landlords</div></div>
+        <div class="splash-stat"><div class="splash-stat-num" id="stat-students">0</div><div class="splash-stat-label">Students</div></div>
+        <div class="splash-stat"><div class="splash-stat-num" id="stat-areas">6</div><div class="splash-stat-label">Areas Covered</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="splash-foot"><button class="btn btn-gold btn-sm install-btn" onclick="installApp()"><i class="fa-solid fa-download"></i> Install the app</button>
+    <nav><a onclick="showLegal('terms')">Terms &amp; Conditions</a><a onclick="showLegal('privacy')">Privacy Policy</a><a onclick="showLegal('safety')">Child Safety</a></nav>
+    <div>© Offrez · BUSE off-campus accommodation</div></div>
+</div>
+
+<!-- ============================================================
+     STUDENT AUTH
+     ============================================================ -->
+<div class="auth-screen" id="studentAuthScreen">
+  <div class="auth-box">
+    <button class="auth-back" onclick="closeAuth()"><i class="fa-solid fa-arrow-left"></i> Back</button>
+    <div class="auth-logo"><img class="buse-logo-img" id="studentAuthLogo" alt="BUSE"></div>
+    <div class="auth-title">Student Portal</div>
+    <div class="auth-sub">Find verified off-campus accommodation near BUSE</div>
+    <div class="auth-tabs">
+      <div class="auth-tab-btn active" id="studentTabLogin" onclick="switchAuthTab('student','login')">Log In</div>
+      <div class="auth-tab-btn" id="studentTabRegister" onclick="switchAuthTab('student','register')">Register</div>
+    </div>
+    <div class="auth-error" id="studentAuthError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+    <div id="studentVerifyNotice" class="auth-notice" style="display:none;"></div>
+
+    <div id="studentLoginForm">
+      <button type="button" class="g-btn" id="studentLoginGoogleBtn" onclick="googleSignIn('student')"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>Continue with Google</span></button>
+      <div class="auth-or"><span>or use email</span></div>
+      <div class="field">
+        <label>Student Email</label>
+        <div class="field-icon-wrap"><i class="fa-solid fa-envelope"></i><input class="input with-icon" id="stuLoginEmail" type="email" autocomplete="email" placeholder="you@buse.ac.zw"></div>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="field-icon-wrap"><i class="fa-solid fa-lock"></i><input class="input with-icon" type="password" id="stuLoginPass" autocomplete="current-password" placeholder="Password"></div>
+        <div style="text-align:right;margin-top:6px;"><a class="auth-link-sm" onclick="openForgotPassword('student')">Forgot password?</a></div>
+      </div>
+      <button class="btn btn-navy btn-block" onclick="studentLogin()"><i class="fa-solid fa-right-to-bracket"></i> Log In</button>
+      <div class="auth-foot-link">New to Offrez? <a onclick="switchAuthTab('student','register')">Create an account</a></div>
+    </div>
+
+    <div id="studentRegisterForm" style="display:none;">
+      <button type="button" class="g-btn" id="studentRegisterGoogleBtn" onclick="googleSignIn('student')"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>Continue with Google</span></button>
+      <div class="auth-or"><span>or use email</span></div>
+      <div class="field-row"><div class="field"><label for="stuRegFirst">First name</label><div class="field-icon-wrap"><i class="fa-solid fa-user"></i><input class="input with-icon" id="stuRegFirst" type="text" placeholder="First name" autocomplete="given-name" ></div></div><div class="field"><label for="stuRegLast">Last name</label><div class="field-icon-wrap"><i class="fa-solid fa-user"></i><input class="input with-icon" id="stuRegLast" type="text" placeholder="Last name" autocomplete="family-name" ></div></div></div>
+      <div class="field"><label for="stuRegNumber">Student registration no.</label><div class="field-icon-wrap"><i class="fa-solid fa-id-card"></i><input class="input with-icon" id="stuRegNumber" type="text" placeholder="e.g. B123456B" autocomplete="" ></div></div>
+      <div class="field"><label for="stuRegEmail">Email address</label><div class="field-icon-wrap"><i class="fa-solid fa-envelope"></i><input class="input with-icon" id="stuRegEmail" type="email" placeholder="you@buse.ac.zw" autocomplete="email" ></div><div class="gp-hint">We will email you a link to verify this address.</div></div>
+      <div class="field-row"><div class="field"><label for="stuRegPhone">Mobile number</label><div class="field-icon-wrap"><i class="fa-solid fa-smartphone"></i><input class="input with-icon" id="stuRegPhone" type="tel" placeholder="07X XXX XXXX" autocomplete="tel" ></div></div><div class="field"><label for="stuRegGender">Gender</label><div class="field-icon-wrap"><i class="fa-solid fa-user"></i><select class="input with-icon" id="stuRegGender"><option value="">Select</option><option>Male</option><option>Female</option></select></div></div></div>
+      <div class="field"><label for="stuRegFaculty">Faculty / programme<em>Optional</em></label><div class="field-icon-wrap"><i class="fa-solid fa-graduation"></i><input class="input with-icon" id="stuRegFaculty" type="text" placeholder="e.g. BSc Computer Science" autocomplete="" ></div></div>
+      <div class="field"><label for="stuRegPass">Password</label><div class="field-icon-wrap"><i class="fa-solid fa-lock"></i><input class="input with-icon" id="stuRegPass" type="password" placeholder="At least 8 characters" autocomplete="new-password" data-meter></div><div class="pw-meter" data-s="0"><span></span><span></span><span></span><span></span></div><div class="pw-label"></div></div>
+      <label class="check"><input type="checkbox" id="stuRegTerms"><span>I accept the <a onclick="showLegal('terms')">Terms &amp; Conditions</a> and <a onclick="showLegal('privacy')">Privacy Policy</a>, and confirm I am 18 or older (or have a parent/guardian's consent).</span></label>
+      <button class="btn btn-navy btn-block" onclick="studentRegister()"><i class="fa-solid fa-user-plus"></i> Create Student Account</button>
+      <div class="auth-foot-link">Already have an account? <a onclick="switchAuthTab('student','login')">Log in</a></div>
+    </div>
   </div>
 </div>
-<div id="modalRoot"></div>
-<div id="toasts" aria-live="polite"></div>
-<div id="netbar" role="status"></div>
-<noscript><p style="padding:24px;font-family:sans-serif">Offrez needs JavaScript. Please enable it in your browser.</p></noscript>
 
-<script src="core.js"></script>
+<!-- ============================================================
+     LANDLORD AUTH
+     ============================================================ -->
+<div class="auth-screen" id="landlordAuthScreen">
+  <div class="auth-box">
+    <button class="auth-back" onclick="closeAuth()"><i class="fa-solid fa-arrow-left"></i> Back</button>
+    <div class="auth-logo"><img class="buse-logo-img" id="landlordAuthLogo" alt="BUSE"></div>
+    <div class="auth-title">Landlord Portal</div>
+    <div class="auth-sub">List your property &amp; reach verified BUSE students</div>
+    <div class="auth-tabs">
+      <div class="auth-tab-btn active" id="landlordTabLogin" onclick="switchAuthTab('landlord','login')">Log In</div>
+      <div class="auth-tab-btn" id="landlordTabRegister" onclick="switchAuthTab('landlord','register')">Register</div>
+    </div>
+    <div class="auth-error" id="landlordAuthError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+    <div id="landlordVerifyNotice" class="auth-notice" style="display:none;"></div>
+
+    <div id="landlordLoginForm">
+      <button type="button" class="g-btn" id="landlordLoginGoogleBtn" onclick="googleSignIn('landlord')"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>Continue with Google</span></button>
+      <div class="auth-or"><span>or use email</span></div>
+      <div class="field">
+        <label>Email</label>
+        <div class="field-icon-wrap"><i class="fa-solid fa-envelope"></i><input class="input with-icon" id="llLoginEmail" type="email" autocomplete="email" placeholder="you@example.com"></div>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="field-icon-wrap"><i class="fa-solid fa-lock"></i><input class="input with-icon" type="password" id="llLoginPass" autocomplete="current-password" placeholder="Password"></div>
+        <div style="text-align:right;margin-top:6px;"><a class="auth-link-sm" onclick="openForgotPassword('landlord')">Forgot password?</a></div>
+      </div>
+      <button class="btn btn-navy btn-block" onclick="landlordLogin()"><i class="fa-solid fa-right-to-bracket"></i> Log In</button>
+      <div class="auth-foot-link">New landlord? <a onclick="switchAuthTab('landlord','register')">Register your property business</a></div>
+    </div>
+
+    <div id="landlordRegisterForm" style="display:none;">
+      <button type="button" class="g-btn" id="landlordRegisterGoogleBtn" onclick="googleSignIn('landlord')"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>Continue with Google</span></button>
+      <div class="auth-or"><span>or use email</span></div>
+      <div class="field-row"><div class="field"><label for="llRegFirst">First name</label><div class="field-icon-wrap"><i class="fa-solid fa-user"></i><input class="input with-icon" id="llRegFirst" type="text" placeholder="First name" autocomplete="given-name" ></div></div><div class="field"><label for="llRegLast">Last name</label><div class="field-icon-wrap"><i class="fa-solid fa-user"></i><input class="input with-icon" id="llRegLast" type="text" placeholder="Last name" autocomplete="family-name" ></div></div></div>
+      <div class="field"><label for="llRegBusiness">Business / property name<em>Optional</em></label><div class="field-icon-wrap"><i class="fa-solid fa-building"></i><input class="input with-icon" id="llRegBusiness" type="text" placeholder="e.g. Chipadze Lodges" autocomplete="" ></div></div>
+      <div class="field-row"><div class="field"><label for="llRegPhone">Mobile number</label><div class="field-icon-wrap"><i class="fa-solid fa-smartphone"></i><input class="input with-icon" id="llRegPhone" type="tel" placeholder="07X XXX XXXX" autocomplete="tel" ></div></div><div class="field"><label for="llRegNid">National ID number</label><div class="field-icon-wrap"><i class="fa-solid fa-id-card"></i><input class="input with-icon" id="llRegNid" type="text" placeholder="ID number" autocomplete="" ></div></div></div>
+      <div class="field"><label for="llRegEmail">Email address</label><div class="field-icon-wrap"><i class="fa-solid fa-envelope"></i><input class="input with-icon" id="llRegEmail" type="email" placeholder="you@example.com" autocomplete="email" ></div><div class="gp-hint">We will email you a link to verify this address.</div></div>
+      <div class="field"><label for="llRegPass">Password</label><div class="field-icon-wrap"><i class="fa-solid fa-lock"></i><input class="input with-icon" id="llRegPass" type="password" placeholder="At least 8 characters" autocomplete="new-password" data-meter></div><div class="pw-meter" data-s="0"><span></span><span></span><span></span><span></span></div><div class="pw-label"></div></div>
+      <div class="kyc-sec" style="background:var(--bg2);margin-top:6px"><h4><i class="fa-solid fa-shield-check"></i> Safety verification</h4><div id="llRegKyc"></div></div>
+      <label class="check"><input type="checkbox" id="llRegTerms"><span>I accept the <a onclick="showLegal('terms')">Terms &amp; Conditions</a>, <a onclick="showLegal('privacy')">Privacy Policy</a> and <a onclick="showLegal('safety')">Child Safety Code of Conduct</a>.</span></label>
+      <button class="btn btn-navy btn-block" onclick="landlordRegister()"><i class="fa-solid fa-user-plus"></i> Create Landlord Account</button>
+      <div class="auth-foot-link">Already registered? <a onclick="switchAuthTab('landlord','login')">Log in</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="auth-screen" id="verifyScreen">
+  <div class="auth-box">
+    <div class="verify-ico"><i class="fa-solid fa-envelope"></i></div>
+    <div class="auth-title">Verify your email</div>
+    <div class="auth-sub">We sent a verification link to <b id="verifyEmailTo"></b>. Open it, then come back here. It keeps accounts real and students safe.</div>
+    <div class="auth-notice">Can't see it? Check your spam or promotions folder. The link works on any device.</div>
+    <button class="btn btn-navy btn-block" onclick="verifyCheck()"><i class="fa-solid fa-circle-check"></i> I've verified my email</button>
+    <button class="btn btn-outline btn-block" style="margin-top:10px" onclick="verifyResend()"><i class="fa-solid fa-paper-plane"></i> Resend verification email</button>
+    <button class="link-btn" onclick="verifyLogout()">Use a different account</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     FORGOT PASSWORD
+     ============================================================ -->
+<div class="auth-screen" id="forgotPasswordScreen">
+  <div class="auth-box" style="width:380px;">
+    <button class="auth-back" onclick="closeForgotPassword()"><i class="fa-solid fa-arrow-left"></i> Back</button>
+    <div class="auth-logo"><img class="buse-logo-img" id="forgotPassLogo" alt="BUSE"></div>
+    <div class="auth-title">Reset Your Password</div>
+    <div class="auth-sub" id="forgotPasswordSub">Enter the email you registered with — we'll send you a real reset link.</div>
+    <div class="auth-error" id="forgotPasswordError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+    <div id="forgotPasswordFormStep">
+      <input type="hidden" id="forgotPasswordRole">
+      <div class="field">
+        <label>Email Address</label>
+        <div class="field-icon-wrap"><i class="fa-solid fa-envelope"></i><input class="input with-icon" type="email" id="forgotPasswordEmail" placeholder="you@example.com"></div>
+      </div>
+      <button class="btn btn-navy btn-block" onclick="submitForgotPassword()"><i class="fa-solid fa-paper-plane"></i> Send Reset Link</button>
+    </div>
+    <div id="forgotPasswordSuccessStep" style="display:none;text-align:center;padding:10px 0;">
+      <i class="fa-solid fa-circle-check" style="font-size:46px;color:var(--green);margin-bottom:14px;display:block;"></i>
+      <h3 style="font-family:'Playfair Display',serif;color:var(--navy);margin-bottom:8px;">Check Your Inbox</h3>
+      <p style="color:var(--text-muted);font-size:13px;line-height:1.6;">We've sent a password reset link to <strong id="forgotPasswordSentTo"></strong>. Open it on this device to choose a new password, then come back and log in.</p>
+      <button class="btn btn-outline btn-block" style="margin-top:18px;" onclick="closeForgotPassword()">Back to Log In</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     STUDENT APP
+     ============================================================ -->
+<div class="auth-screen" id="googleProfileScreen">
+  <div class="auth-box">
+    <button class="auth-back" onclick="cancelGoogleProfile()"><i class="fa-solid fa-arrow-left"></i> Cancel</button>
+    <div class="auth-logo"><img class="buse-logo-img" alt="BUSE"></div>
+    <div class="auth-title">Almost there!</div>
+    <div class="auth-sub" id="gpSub">Complete your profile to finish signing up</div>
+    <div class="gp-who"><img id="gpPhoto" alt=""><div><b id="gpName"></b><span id="gpEmail"></span></div></div>
+    <div class="auth-error" id="gpError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+    <div id="gpFields"></div>
+    <button class="btn btn-navy btn-block" id="gpSubmit" onclick="completeGoogleProfile()"><i class="fa-solid fa-check"></i> Finish &amp; Enter Offrez</button>
+  </div>
+</div>
+
+<div class="app-shell" id="studentApp">
+  <div class="app-topbar">
+    <div class="app-topbar-left">
+      <button class="app-mobile-toggle" onclick="document.getElementById('studentNav').classList.toggle('mobile-open')"><i class="fa-solid fa-bars"></i></button>
+      <div class="app-topbar-logo"><img class="buse-logo-img" alt="BUSE"></div>
+      <div class="app-topbar-title">Off<span>rez</span></div>
+    </div>
+    <div class="app-topbar-nav" id="studentNav">
+      <div class="app-nav-link active" onclick="showStudentPage('browse',this)"><i class="fa-solid fa-magnifying-glass"></i> Browse</div>
+      <div class="app-nav-link" onclick="showStudentPage('favorites',this)"><i class="fa-solid fa-heart"></i> Favourites</div>
+      <div class="app-nav-link" onclick="showStudentPage('bookings',this)"><i class="fa-solid fa-calendar-check"></i> My Bookings</div>
+      <div class="app-nav-link" onclick="showStudentPage('messages',this)"><i class="fa-solid fa-comments"></i> Messages</div>
+      <div class="app-nav-link" onclick="showStudentPage('profile',this)"><i class="fa-solid fa-user"></i> Profile</div>
+    </div>
+    <div class="app-topbar-right">
+      <div class="app-user-chip"><i class="fa-solid fa-graduation-cap"></i> <span id="studentChipName">Student</span></div>
+      <button class="app-logout-btn" onclick="logoutApp('student')"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </div>
+  </div>
+
+  <div class="app-content">
+
+    <!-- BROWSE -->
+    <div class="app-page active" id="student-page-browse">
+      <div class="page-head"><h1>Find your <span>off-campus home</span></h1><p>Browse verified rooms and lodges around Bindura University of Science Education</p></div>
+
+      <div class="filters-bar">
+        <div class="filter-field" style="min-width:200px;">
+          <label>Area</label>
+          <select id="f-area" onchange="renderListings()">
+            <option value="">All Areas</option>
+            <optgroup label="Bindura">
+              <option>Shashi View (Bindura)</option><option>Clusters (Bindura)</option><option>Chipindura (Bindura)</option><option>Administrative Campus (Bindura)</option>
+            </optgroup>
+            <optgroup label="Kadoma">
+              <option>Rimuka (Kadoma)</option><option>Ngezi (Kadoma)</option><option>Waverley (Kadoma)</option><option>Mbizo (Kadoma)</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="filter-field">
+          <label>Room Type</label>
+          <select id="f-roomtype" onchange="renderListings()">
+            <option value="">Any Type</option><option>Single</option><option>Shared</option><option>Self-Contained</option>
+          </select>
+        </div>
+        <div class="filter-field">
+          <label>Gender Pref.</label>
+          <select id="f-gender" onchange="renderListings()">
+            <option value="">Any</option><option>Male Only</option><option>Female Only</option><option>Any</option>
+          </select>
+        </div>
+        <div class="filter-field">
+          <label>Max Price ($/mo)</label>
+          <input type="number" id="f-maxprice" placeholder="e.g. 100" oninput="renderListings()">
+        </div>
+        <div class="filter-field">
+          <label>Search</label>
+          <input type="text" id="f-search" placeholder="Title or keyword..." oninput="renderListings()">
+        </div>
+        <div class="filter-field">
+          <label>Sort By</label>
+          <select id="f-sort" onchange="renderListings()">
+            <option value="newest">Newest</option><option value="price-asc">Price: Low to High</option><option value="price-desc">Price: High to Low</option><option value="distance">Closest to Campus</option><option value="rating">Top Rated</option>
+          </select>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="clearFilters()"><i class="fa-solid fa-xmark"></i> Clear</button>
+      </div>
+
+      <div id="listingResultsCount" style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px;"></div>
+      <div class="listing-grid" id="listingGrid"></div>
+    </div>
+
+    <!-- FAVORITES -->
+    <div class="app-page" id="student-page-favorites">
+      <div class="page-head"><h1>Your <span>Favourites</span></h1><p>Rooms you've saved for later</p></div>
+      <div class="listing-grid" id="favoritesGrid"></div>
+    </div>
+
+    <!-- BOOKINGS -->
+    <div class="app-page" id="student-page-bookings">
+      <div class="page-head"><h1>My <span>Bookings</span></h1><p>Track the status of your room inquiries and bookings</p></div>
+      <div class="card">
+        <div class="table-wrap-x" style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr><th>Property</th><th>Landlord</th><th>Price</th><th>Move-in Date</th><th>Status</th><th>Requested</th><th>Actions</th></tr></thead>
+            <tbody id="studentBookingsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MESSAGES -->
+    <div class="app-page" id="student-page-messages">
+      <div class="page-head"><h1>Messages</h1><p>Conversations with landlords about your inquiries</p></div>
+      <div class="card">
+        <div id="studentMessagesList"></div>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="app-page" id="student-page-profile">
+      <div class="page-head"><h1>My Profile</h1></div>
+      <div class="card" style="max-width:560px;">
+        <div id="studentProfileBody"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================
+     LANDLORD APP
+     ============================================================ -->
+<div class="app-shell" id="landlordApp">
+  <div class="app-topbar">
+    <div class="app-topbar-left">
+      <button class="app-mobile-toggle" onclick="document.getElementById('landlordNav').classList.toggle('mobile-open')"><i class="fa-solid fa-bars"></i></button>
+      <div class="app-topbar-logo"><img class="buse-logo-img" alt="BUSE"></div>
+      <div class="app-topbar-title">Off<span>rez</span></div>
+    </div>
+    <div class="app-topbar-nav" id="landlordNav">
+      <div class="app-nav-link active" onclick="showLandlordPage('dashboard',this)"><i class="fa-solid fa-gauge-high"></i> Dashboard</div>
+      <div class="app-nav-link" onclick="showLandlordPage('properties',this)"><i class="fa-solid fa-house-chimney"></i> My Properties</div>
+      <div class="app-nav-link" onclick="showLandlordPage('bookings',this)"><i class="fa-solid fa-calendar-check"></i> Bookings</div>
+      <div class="app-nav-link" onclick="showLandlordPage('messages',this)"><i class="fa-solid fa-comments"></i> Messages</div>
+      <div class="app-nav-link" onclick="showLandlordPage('profile',this)"><i class="fa-solid fa-user"></i> Profile</div>
+    </div>
+    <div class="app-topbar-right">
+      <div class="app-user-chip"><i class="fa-solid fa-house-chimney-user"></i> <span id="landlordChipName">Landlord</span></div>
+      <button class="app-logout-btn" onclick="logoutApp('landlord')"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </div>
+  </div>
+
+  <div class="app-content">
+
+    <!-- DASHBOARD -->
+    <div class="app-page active" id="landlord-page-dashboard">
+      <div class="page-head"><h1>Welcome back, <span id="landlordWelcomeName"></span></h1><p>Here's how your listings are performing</p></div>
+      <div class="stat-grid" id="landlordStatsGrid"></div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fa-solid fa-inbox"></i> Recent Booking Requests</div></div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr><th>Student</th><th>Property</th><th>Move-in</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="landlordRecentBookings"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROPERTIES -->
+    <div class="app-page" id="landlord-page-properties">
+      <div class="page-head"><h1>My Properties</h1><p>Manage your listings on Offrez</p></div>
+      <div style="margin-bottom:18px;"><button class="btn btn-gold" onclick="openPropertyModal()"><i class="fa-solid fa-plus"></i> Add New Property</button></div>
+      <div class="listing-grid" id="landlordPropertiesGrid"></div>
+    </div>
+
+    <!-- BOOKINGS -->
+    <div class="app-page" id="landlord-page-bookings">
+      <div class="page-head"><h1>Booking Requests</h1><p>Review and respond to student booking requests</p></div>
+      <div class="card">
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr><th>Student</th><th>Phone</th><th>Property</th><th>Move-in</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="landlordAllBookings"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MESSAGES -->
+    <div class="app-page" id="landlord-page-messages">
+      <div class="page-head"><h1>Messages</h1><p>Conversations with interested students</p></div>
+      <div class="card"><div id="landlordMessagesList"></div></div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="app-page" id="landlord-page-profile">
+      <div class="page-head"><h1>My Profile</h1></div>
+      <div class="card" style="max-width:560px;"><div id="landlordProfileBody"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================
+     SHARED MODALS (property detail, add/edit property, booking, message)
+     ============================================================ -->
+<div class="modal-overlay2" id="propertyDetailModal">
+  <div class="modal2 modal2-wide">
+    <div class="modal2-header">
+      <div class="modal2-title"><i class="fa-solid fa-house"></i> Property Details</div>
+      <button class="modal2-close" onclick="closeModal2('propertyDetailModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal2-body" id="propertyDetailBody"></div>
+    <div class="modal2-footer" id="propertyDetailFooter"></div>
+  </div>
+</div>
+
+<div class="modal-overlay2" id="propertyFormModal">
+  <div class="modal2 modal2-wide">
+    <div class="modal2-header">
+      <div class="modal2-title" id="propertyFormTitle"><i class="fa-solid fa-plus"></i> Add Property</div>
+      <button class="modal2-close" onclick="closeModal2('propertyFormModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal2-body">
+      <div id="propertyFormAlert"></div>
+      <input type="hidden" id="pf-id">
+      <div class="field-row">
+        <div class="field"><label>Title</label><input class="input" id="pf-title" placeholder="e.g. Cozy Single Room — Shashi View (Bindura)"></div>
+        <div class="field"><label>Area</label>
+          <select class="input" id="pf-area">
+            <optgroup label="Bindura">
+              <option>Shashi View (Bindura)</option><option>Clusters (Bindura)</option><option>Chipindura (Bindura)</option><option>Administrative Campus (Bindura)</option>
+            </optgroup>
+            <optgroup label="Kadoma">
+              <option>Rimuka (Kadoma)</option><option>Ngezi (Kadoma)</option><option>Waverley (Kadoma)</option><option>Mbizo (Kadoma)</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Price ($/month)</label><input class="input" type="number" id="pf-price" placeholder="e.g. 60"></div>
+        <div class="field"><label>Distance to Campus (km)</label><input class="input" type="number" step="0.1" id="pf-distance" placeholder="e.g. 1.5"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Room Type</label>
+          <select class="input" id="pf-roomtype"><option>Single</option><option>Shared</option><option>Self-Contained</option></select>
+        </div>
+        <div class="field"><label>Gender Preference</label>
+          <select class="input" id="pf-gender"><option>Any</option><option>Male Only</option><option>Female Only</option></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Bedrooms</label><input class="input" type="number" id="pf-bedrooms" placeholder="1" value="1"></div>
+        <div class="field"><label>Capacity (students)</label><input class="input" type="number" id="pf-capacity" placeholder="1" value="1"></div>
+      </div>
+      <div class="field"><label>Amenities (comma-separated)</label><input class="input" id="pf-amenities" placeholder="WiFi, Borehole Water, Furnished, Security Guard"></div>
+      <div class="field">
+        <label>Property Photos</label>
+        <div class="photo-upload-row">
+          <div class="photo-upload-btn-wrap">
+            <input type="file" id="pf-photos" accept="image/*" multiple onchange="handlePropertyPhotos(this)">
+            <label for="pf-photos" class="photo-upload-btn"><i class="fa-solid fa-camera"></i> Choose Photos</label>
+            <span class="photo-upload-filename" id="pf-photos-filename">No photos selected</span>
+          </div>
+        </div>
+        <div class="photo-thumb-strip" id="pf-photos-preview"></div>
+      </div>
+      <div class="field"><label>Description</label><textarea class="input" id="pf-description" rows="4" placeholder="Describe the property..."></textarea></div>
+    </div>
+    <div class="modal2-footer">
+      <button class="btn btn-outline" onclick="closeModal2('propertyFormModal')">Cancel</button>
+      <button class="btn btn-gold" onclick="savePropertyForm()"><i class="fa-solid fa-check"></i> Save Property</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay2" id="bookingFormModal">
+  <div class="modal2">
+    <div class="modal2-header">
+      <div class="modal2-title"><i class="fa-solid fa-calendar-check"></i> Request Booking</div>
+      <button class="modal2-close" onclick="closeModal2('bookingFormModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal2-body">
+      <div id="bookingFormAlert"></div>
+      <input type="hidden" id="bf-property-id">
+      <div class="field"><label>Preferred Move-in Date</label><input class="input" type="date" id="bf-movein"></div>
+      <div class="field"><label>Message to Landlord (optional)</label><textarea class="input" id="bf-message" rows="3" placeholder="Introduce yourself, ask any questions..."></textarea></div>
+    </div>
+    <div class="modal2-footer">
+      <button class="btn btn-outline" onclick="closeModal2('bookingFormModal')">Cancel</button>
+      <button class="btn btn-gold" onclick="submitBooking()"><i class="fa-solid fa-paper-plane"></i> Send Request</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay2" id="messageThreadModal">
+  <div class="modal2">
+    <div class="modal2-header">
+      <div class="modal2-title" id="messageThreadTitle"><i class="fa-solid fa-comments"></i> Conversation</div>
+      <button class="modal2-close" onclick="closeModal2('messageThreadModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal2-body">
+      <div id="messageThreadBody" style="max-height:340px;overflow-y:auto;margin-bottom:14px;"></div>
+      <div class="chat-quick-replies" id="chatQuickReplies"></div>
+      <input type="hidden" id="mt-property-id">
+      <input type="hidden" id="mt-other-id">
+      <div class="field-row" style="grid-template-columns:1fr auto;">
+        <input class="input" id="mt-new-message" placeholder="Type a message..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendThreadMessage();}">
+        <button class="btn btn-gold" onclick="sendThreadMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay2" id="reviewFormModal">
+  <div class="modal2" style="width:420px;">
+    <div class="modal2-header">
+      <div class="modal2-title"><i class="fa-solid fa-star"></i> Leave a Review</div>
+      <button class="modal2-close" onclick="closeModal2('reviewFormModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal2-body">
+      <input type="hidden" id="rf-property-id">
+      <div class="field">
+        <label>Rating</label>
+        <select class="input" id="rf-rating"><option value="5">5 — Excellent</option><option value="4">4 — Good</option><option value="3">3 — Average</option><option value="2">2 — Poor</option><option value="1">1 — Very Poor</option></select>
+      </div>
+      <div class="field"><label>Comment</label><textarea class="input" id="rf-comment" rows="3" placeholder="Share your experience..."></textarea></div>
+    </div>
+    <div class="modal2-footer">
+      <button class="btn btn-outline" onclick="closeModal2('reviewFormModal')">Cancel</button>
+      <button class="btn btn-gold" onclick="submitReview()"><i class="fa-solid fa-check"></i> Submit Review</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay2" id="paymentModal">
+  <div class="modal2" style="width:460px;">
+    <div class="modal2-header">
+      <div class="modal2-title" id="paymentModalTitle"><i class="fa-solid fa-credit-card"></i> Pay Deposit</div>
+      <button class="modal2-close" onclick="closeModal2('paymentModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal2-body">
+      <input type="hidden" id="pay-booking-id">
+
+      <div id="paymentStep1">
+        <div class="payment-summary-box">
+          <div class="payment-summary-row"><span>Property</span><span id="pay-summary-title" style="font-weight:600;"></span></div>
+          <div class="payment-summary-row"><span>Move-in Date</span><span id="pay-summary-movein"></span></div>
+          <div class="payment-summary-row"><span>Monthly Rent</span><span id="pay-summary-rent"></span></div>
+          <div class="payment-summary-row total"><span>Deposit Due Now</span><span id="pay-summary-deposit"></span></div>
+        </div>
+
+        <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:9px;">Choose Payment Method</label>
+        <div class="payment-method-grid" id="paymentMethodGrid">
+          <div class="payment-method-card selected" data-method="EcoCash" onclick="selectPaymentMethod(this)"><i class="fa-solid fa-mobile-screen-button"></i><span>EcoCash</span></div>
+          <div class="payment-method-card" data-method="OneMoney" onclick="selectPaymentMethod(this)"><i class="fa-solid fa-wallet"></i><span>OneMoney</span></div>
+          <div class="payment-method-card" data-method="Visa/Mastercard" onclick="selectPaymentMethod(this)"><i class="fa-regular fa-credit-card"></i><span>Card</span></div>
+          <div class="payment-method-card" data-method="Bank Transfer" onclick="selectPaymentMethod(this)"><i class="fa-solid fa-building-columns"></i><span>Bank Transfer</span></div>
+        </div>
+
+        <div id="paymentMethodFields"></div>
+        <div id="paymentFormAlert"></div>
+      </div>
+
+      <div id="paymentStep2" style="display:none;">
+        <div class="payment-success-box">
+          <i class="fa-solid fa-circle-check"></i>
+          <h3>Payment Successful!</h3>
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Your deposit has been received. The landlord has been notified and your booking is now confirmed.</p>
+        </div>
+        <div class="payment-summary-box" id="paymentReceiptBox"></div>
+      </div>
+    </div>
+    <div class="modal2-footer" id="paymentModalFooter">
+      <button class="btn btn-outline" onclick="closeModal2('paymentModal')">Cancel</button>
+      <button class="btn btn-gold" onclick="processPayment()"><i class="fa-solid fa-lock"></i> Pay Securely</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay2" id="kycModal"><div class="modal2 modal2-wide">
+  <div class="modal2-header"><h3><i class="fa-solid fa-shield-check"></i> Landlord verification</h3><button class="modal2-close" onclick="closeModal2('kycModal')"><i class="fa-solid fa-xmark"></i></button></div>
+  <div class="modal2-body" id="kycModalBody"></div>
+  <div class="modal2-footer"><button class="btn btn-outline" onclick="closeModal2('kycModal')">Cancel</button><button class="btn btn-gold" id="kycSubmitBtn" onclick="submitKycModal()"><i class="fa-solid fa-shield-check"></i> Submit for verification</button></div>
+</div></div>
+<div class="modal-overlay2" id="legalModal"><div class="modal2 modal2-wide">
+  <div class="modal2-header"><h3 id="legalTitle"></h3><button class="modal2-close" onclick="closeModal2('legalModal')"><i class="fa-solid fa-xmark"></i></button></div>
+  <div class="modal2-body legal-body" id="legalBody"></div>
+  <div class="modal2-footer"><button class="btn btn-navy" onclick="closeModal2('legalModal')">Done</button></div>
+</div></div>
+<script>
+// ============================================================
+// LOGO (embedded base64 — real BUSE crest)
+// ============================================================
+const LOGO_DATA_URI = 'icons/buse-crest.png', LOGO_FULL_URI = 'icons/buse-logo-full.png';
+function setAllLogoImages() {
+  document.querySelectorAll('.buse-logo-img').forEach(img => { img.src = img.id === 'heroLogoImg' ? LOGO_FULL_URI : LOGO_DATA_URI; });
+}
+
+// ============================================================
+// DATA STORE (localStorage-backed)
+// ============================================================
+const DB_KEY = 'offrez_db_v1';
+const DB = {
+  students: [],
+  landlords: [],
+  properties: [],
+  bookings: [],
+  messages: [],
+  reviews: [],
+  payments: []
+};
+// Admin credentials are intentionally NOT part of the synced DB object above —
+// they are never written to Firestore or localStorage, so they cannot be read
+// by inspecting synced data on any device. Known only to the Admin Office.
+function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+function loadDB() {
+  const raw = localStorage.getItem(DB_KEY);
+  if (raw) {
+    try { const saved = JSON.parse(raw); Object.assign(DB, saved); } catch(e) {}
+  }
+}
+function genId(prefix) { return prefix + '-' + Date.now().toString().slice(-7) + Math.floor(Math.random()*90+10); }
+
+// ============================================================
+// FIRESTORE SYNC (cross-device sync for students, landlords,
+// properties, bookings, messages, reviews, payments — NOT admin)
+// ============================================================
+const FIRESTORE_COLLECTIONS = ['students','landlords','properties','bookings','messages','reviews','payments'];
+async function syncDocToFirestore(col, id, data) {
+  if (!window._offrezDB) return false;
+  try {
+    const { doc, setDoc } = window._offrezFns;
+    await setDoc(doc(window._offrezDB, col, id), data);
+    return true;
+  } catch(e) {
+    console.error('Firestore sync error [' + col + ']:', e.code || e.message, e);
+    return false;
+  }
+}
+async function fetchDocFromFirestore(col, id) {
+  if (!window._offrezDB) return null;
+  try {
+    const { doc, getDoc } = window._offrezFns;
+    const snap = await getDoc(doc(window._offrezDB, col, id));
+    return snap.exists() ? snap.data() : null;
+  } catch(e) { console.warn('Firestore fetch error:', col, e.message); return null; }
+}
+async function deleteDocFromFirestore(col, id) {
+  if (!window._offrezDB) return;
+  try {
+    const { doc, deleteDoc } = window._offrezFns;
+    await deleteDoc(doc(window._offrezDB, col, id));
+  } catch(e) { console.warn('Firestore delete error:', col, e.message); }
+}
+// Shows a fixed banner across the top of the screen. Used so sync problems
+// are visible on the phone that's actually broken, not just in a desktop
+// console nobody testing on a handset will ever open.
+function showSyncBanner(message) {
+  if (document.getElementById('offrezSyncBanner')) return; // don't stack duplicates
+  const banner = document.createElement('div');
+  banner.id = 'offrezSyncBanner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#E53E3E;color:#fff;font:600 12.5px/1.5 sans-serif;padding:9px 14px;text-align:center;';
+  banner.textContent = message;
+  document.body.prepend(banner);
+}
+function startFirestoreLiveSync() {
+  if (!window._offrezDB) return;
+  const { collection, onSnapshot } = window._offrezFns;
+  FIRESTORE_COLLECTIONS.forEach(col => {
+    onSnapshot(collection(window._offrezDB, col), snap => {
+      const items = [];
+      snap.forEach(d => items.push(d.data()));
+      DB[col] = items;
+      saveDB();
+      refreshCurrentAppView();
+    }, err => {
+      console.warn('Firestore listener error:', col, err.message);
+      // "permission-denied" here means the Firestore Security Rules don't
+      // allow reading this collection — the #1 cause of "accounts/listings
+      // aren't syncing across devices" reports, and it fails completely
+      // silently unless we surface it like this.
+      if (err.code === 'permission-denied') {
+        showSyncBanner('Sync is blocked by Firestore security rules on "' + col + '" — accounts and listings will not sync across devices until this is fixed.');
+      }
+    });
+  });
+}
+function refreshCurrentAppView() {
+  // Re-render whichever screen's data is currently visible so live updates from
+  // other devices (new listings, messages, bookings) show up without disrupting
+  // the user's current scroll position or open dropdowns.
+  if (!currentUser) { refreshSplashStats(); return; }
+  if (document.getElementById('messageThreadModal')?.classList.contains('open')) renderMessageThread();
+  if (currentUser.role === 'student' && document.getElementById('studentApp')?.classList.contains('show')) {
+    const renderers = { browse: renderListings, favorites: renderFavorites, bookings: renderStudentBookings, messages: renderStudentMessages, profile: renderStudentProfile };
+    renderers[currentStudentPageName]?.();
+  } else if (currentUser.role === 'landlord' && document.getElementById('landlordApp')?.classList.contains('show')) {
+    const renderers = { dashboard: renderLandlordDashboard, properties: renderLandlordProperties, bookings: renderLandlordBookings, messages: renderLandlordMessages, profile: renderLandlordProfile };
+    renderers[currentLandlordPageName]?.();
+  }
+}
+
+let currentUser = null; // { role:'student'|'landlord'|'admin', id, ... }
+
+// ============================================================
+// SEED DATA (sample properties around Bindura so the splash page
+// and browse views aren't empty on first load)
+// ============================================================
+function seedIfEmpty() {
+  if (DB.properties.length) return;
+  const sampleLandlord = { id: 'll-seed-1', fname: 'Tatenda', lname: 'Moyo', email: 'tatenda@example.com', phone: '0772345671', business: 'Offrez Verified Lodges', nid: 'N/A', verified: true, joined: new Date().toISOString() };
+  DB.landlords.push(sampleLandlord);
+  const areas = ['Shashi View (Bindura)','Clusters (Bindura)','Chipindura (Bindura)','Administrative Campus (Bindura)','Rimuka (Kadoma)','Ngezi (Kadoma)','Waverley (Kadoma)','Mbizo (Kadoma)'];
+  const titles = ['Cozy Single Room', 'Shared 2-Bed Cottage', 'Self-Contained Bedsitter', 'Spacious Boarding House Room', 'Modern Lodge Room', 'Budget-Friendly Room'];
+  const amenitiesPool = ['WiFi','Borehole Water','Electricity (Prepaid)','Furnished','Security Guard','Study Desk','Shared Kitchen','Private Bathroom','Solar Backup','Parking'];
+  for (let i = 0; i < 8; i++) {
+    const area = areas[i % areas.length];
+    const price = 40 + (i % 5) * 15;
+    DB.properties.push({
+      id: genId('PROP'),
+      landlordId: sampleLandlord.id,
+      title: titles[i % titles.length] + ' — ' + area,
+      area, price,
+      roomType: i % 3 === 0 ? 'Single' : (i % 3 === 1 ? 'Shared' : 'Self-Contained'),
+      genderPref: i % 4 === 0 ? 'Female Only' : (i % 4 === 1 ? 'Male Only' : 'Any'),
+      distanceKm: (1 + (i % 6) * 0.7).toFixed(1),
+      amenities: amenitiesPool.slice(i % 4, i % 4 + 5),
+      description: 'A comfortable, secure room ideal for BUSE students, walking distance to campus shuttle pickup points. Water and electricity included in rent.',
+      bedrooms: 1 + (i % 3),
+      capacity: 1 + (i % 2),
+      verified: i % 3 !== 2,
+      status: 'Available',
+      photos: [],
+      created: new Date(Date.now() - i * 86400000).toISOString(),
+      rating: (3.5 + (i % 3) * 0.5).toFixed(1),
+      reviewsCount: i + 2
+    });
+  }
+}
+
+// ============================================================
+// SPLASH / STATS
+// ============================================================
+function refreshSplashStats() {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('stat-listings', DB.properties.length);
+  set('stat-landlords', DB.landlords.length);
+  set('stat-students', DB.students.length);
+}
+function splashSearch() {
+  const q = document.getElementById('splashSearchInput').value.trim();
+  openAuth('student', 'register');
+  if (q) sessionStorage.setItem('offrez_pending_search', q);
+}
+
+// ============================================================
+// ROLE PICKER / AUTH ROUTING
+// ============================================================
+function openRolePicker(mode) {
+  // Scroll to role cards on splash; if registering, default to student auth, if logging in ask which role via role cards (already visible)
+  document.querySelector('.role-cards')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function openAuth(role, mode) {
+  document.querySelectorAll('.auth-screen').forEach(s => s.classList.remove('show'));
+  const screen = document.getElementById(role + 'AuthScreen');
+  if (!screen) return;
+  screen.classList.add('show');
+  if (mode) switchAuthTab(role, mode);
+  clearAuthError(role);
+}
+function closeAuth() {
+  document.querySelectorAll('.auth-screen').forEach(s => s.classList.remove('show'));
+}
+function switchAuthTab(role, mode) {
+  const loginForm = document.getElementById(role + 'LoginForm');
+  const registerForm = document.getElementById(role + 'RegisterForm');
+  const tabLogin = document.getElementById(role + 'TabLogin');
+  const tabRegister = document.getElementById(role + 'TabRegister');
+  if (mode === 'login') {
+    loginForm.style.display = 'block'; registerForm.style.display = 'none';
+    tabLogin.classList.add('active'); tabRegister.classList.remove('active');
+  } else {
+    loginForm.style.display = 'none'; registerForm.style.display = 'block';
+    tabLogin.classList.remove('active'); tabRegister.classList.add('active');
+  }
+  clearAuthError(role);
+}
+function showAuthError(role, msg) {
+  const el = document.getElementById(role + 'AuthError');
+  if (!el) return;
+  el.querySelector('span').textContent = msg;
+  el.style.display = 'flex';
+}
+function clearAuthError(role) {
+  const el = document.getElementById(role + 'AuthError');
+  if (el) el.style.display = 'none';
+}
+// A practical (not 100% RFC-perfect, but realistic) email format check —
+// catches the common mistakes: missing @, missing domain, missing TLD, spaces.
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+// Simple deterministic hash for local-mode password storage.
+// This is NOT cryptographic — it is only used as a fallback when Firebase
+// Auth is unavailable (e.g. offline / project deleted). When Firebase IS
+// available, Firebase Auth handles all password hashing securely server-side.
+function simpleHash(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = (h * 0x01000193) >>> 0;
+  }
+  // xor-fold with length to reduce collision chance for short passwords
+  return (h ^ (str.length * 0x9e3779b9)).toString(16).padStart(8,'0');
+}
+
+// ============================================================
+// STUDENT AUTH
+// ============================================================
+async function studentRegister() {
+  const fname = document.getElementById('stuRegFirst').value.trim();
+  const lname = document.getElementById('stuRegLast').value.trim();
+  const regNumber = document.getElementById('stuRegNumber').value.trim();
+  const email = document.getElementById('stuRegEmail').value.trim().toLowerCase();
+  const phone = document.getElementById('stuRegPhone').value.trim();
+  const gender = document.getElementById('stuRegGender').value;
+  const faculty = document.getElementById('stuRegFaculty').value.trim();
+  const password = document.getElementById('stuRegPass').value;
+  if (!fname || !lname || !regNumber || !email || !password) {
+    showAuthError('student', 'Please fill in your name, Student Registration Number, email, and password.'); return;
+  }
+  if (!isValidEmail(email)) {
+    showAuthError('student', 'Please enter a real, valid email address (e.g. name@example.com).'); return;
+  }
+  if (password.length < 6) {
+    showAuthError('student', 'Password must be at least 6 characters.'); return;
+  }
+  if (authSubmitInFlight) return;
+  authSubmitInFlight = true;
+  // Security: each Student Registration Number may only ever be linked to
+  // ONE Offrez account, so a student can't create duplicate accounts.
+  const idTaken = await isStudentIdTaken(regNumber, null);
+  if (idTaken) {
+    authSubmitInFlight = false;
+    showAuthError('student', 'This Student ID is already registered on Offrez. Each student may only have one account — please log in instead, or use "Forgot password" if needed.');
+    return;
+  }
+  if (!window._offrezAuth) {
+    // Local fallback (Firebase unavailable)
+    authSubmitInFlight = false;
+    if (DB.students.some(s => s.email === email)) { showAuthError('student', 'An account with this email already exists. Please log in.'); return; }
+    const student = { id: genId('STU'), fname, lname, regNumber, email, phone, gender, faculty, favorites: [], _pwHash: simpleHash(password), joined: new Date().toISOString() };
+    DB.students.push(student); saveDB(); loginAsStudent(student); return;
+  }
+  const { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } = window._offrezFns;
+  createUserWithEmailAndPassword(window._offrezAuth, email, password)
+    .then(async (cred) => {
+      const uid = cred.user.uid;
+      const student = { id: uid, fname, lname, regNumber, email, phone, gender, faculty, favorites: [], joined: new Date().toISOString() };
+      DB.students.push(student);
+      saveDB();
+      const synced = await syncDocToFirestore('students', uid, student);
+      if (!synced) {
+        console.warn('Your account was created, but profile data could not be saved online. If this persists, check Firestore security rules for the "students" collection.');
+        showSyncBanner('Your account saved on this device only — it did not sync online. Please contact Offrez support.');
+      }
+      updateProfile(cred.user, { displayName: fname + ' ' + lname }).catch(()=>{});
+      sendEmailVerification(cred.user).catch(e => console.warn('Verification email failed to send:', e.message));
+      showEmailVerificationNotice('student', email);
+      loginAsStudent(student);
+    })
+    .catch(err => showAuthError('student', friendlyAuthError(err)))
+    .finally(() => { authSubmitInFlight = false; });
+}
+let authSubmitInFlight = false;
+function studentLogin() {
+  const email = document.getElementById('stuLoginEmail').value.trim().toLowerCase();
+  const password = document.getElementById('stuLoginPass').value;
+  if (!email || !password) { showAuthError('student', 'Please enter your email and password.'); return; }
+  if (!isValidEmail(email)) { showAuthError('student', 'Please enter a real, valid email address.'); return; }
+  if (authSubmitInFlight) return;
+  if (!window._offrezAuth) {
+    const student = DB.students.find(s => s.email === email);
+    if (!student || student._pwHash !== simpleHash(password)) { showAuthError('student', 'Invalid email or password.'); return; }
+    loginAsStudent(student); return;
+  }
+  authSubmitInFlight = true;
+  const { signInWithEmailAndPassword } = window._offrezFns;
+  signInWithEmailAndPassword(window._offrezAuth, email, password)
+    .then(async (cred) => {
+      const uid = cred.user.uid;
+      let student = DB.students.find(s => s.id === uid);
+      if (!student) {
+        // Local copy may not have synced yet (e.g. first login on a new device) —
+        // fetch the profile document directly from Firestore instead of waiting.
+        student = await fetchDocFromFirestore('students', uid);
+        if (student) { DB.students.push(student); saveDB(); }
+      }
+      if (!student) { showAuthError('student', 'Account found but profile data is missing. Please contact support.'); return; }
+      loginAsStudent(student);
+    })
+    .catch(err => showAuthError('student', friendlyAuthError(err)))
+    .finally(() => { authSubmitInFlight = false; });
+}
+function loginAsStudent(student) {
+  currentUser = { role: 'student', id: student.id };
+  closeAuth();
+  document.getElementById('splashGate').style.display = 'none';
+  launchStudentApp(student);
+}
+
+// ============================================================
+// LANDLORD AUTH
+// ============================================================
+function landlordRegister() {
+  const fname = document.getElementById('llRegFirst').value.trim();
+  const lname = document.getElementById('llRegLast').value.trim();
+  const business = document.getElementById('llRegBusiness').value.trim();
+  const phone = document.getElementById('llRegPhone').value.trim();
+  const nid = document.getElementById('llRegNid').value.trim();
+  const email = document.getElementById('llRegEmail').value.trim().toLowerCase();
+  const password = document.getElementById('llRegPass').value;
+  if (!fname || !lname || !email || !password || !phone) {
+    showAuthError('landlord', 'Please fill in your name, phone, email, and password.'); return;
+  }
+  if (!isValidEmail(email)) {
+    showAuthError('landlord', 'Please enter a real, valid email address (e.g. name@example.com).'); return;
+  }
+  if (password.length < 6) {
+    showAuthError('landlord', 'Password must be at least 6 characters.'); return;
+  }
+  if (!window._offrezAuth) {
+    if (DB.landlords.some(l => l.email === email)) { showAuthError('landlord', 'An account with this email already exists. Please log in.'); return; }
+    const landlord = { id: genId('LL'), fname, lname, business, phone, nid, email, verified: false, _pwHash: simpleHash(password), joined: new Date().toISOString() };
+    DB.landlords.push(landlord); saveDB(); loginAsLandlord(landlord); return;
+  }
+  const { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } = window._offrezFns;
+  createUserWithEmailAndPassword(window._offrezAuth, email, password)
+    .then(async (cred) => {
+      const uid = cred.user.uid;
+      const landlord = { id: uid, fname, lname, business, phone, nid, email, verified: false, joined: new Date().toISOString() };
+      DB.landlords.push(landlord);
+      saveDB();
+      const synced = await syncDocToFirestore('landlords', uid, landlord);
+      if (!synced) {
+        console.warn('Your account was created, but profile data could not be saved online. If this persists, check Firestore security rules for the "landlords" collection.');
+        showSyncBanner('Your account saved on this device only — it did not sync online. Please contact Offrez support.');
+      }
+      updateProfile(cred.user, { displayName: fname + ' ' + lname }).catch(()=>{});
+      sendEmailVerification(cred.user).catch(e => console.warn('Verification email failed to send:', e.message));
+      showEmailVerificationNotice('landlord', email);
+      loginAsLandlord(landlord);
+    })
+    .catch(err => showAuthError('landlord', friendlyAuthError(err)));
+}
+function landlordLogin() {
+  const email = document.getElementById('llLoginEmail').value.trim().toLowerCase();
+  const password = document.getElementById('llLoginPass').value;
+  if (!email || !password) { showAuthError('landlord', 'Please enter your email and password.'); return; }
+  if (!isValidEmail(email)) { showAuthError('landlord', 'Please enter a real, valid email address.'); return; }
+  if (authSubmitInFlight) return;
+  if (!window._offrezAuth) {
+    const landlord = DB.landlords.find(l => l.email === email);
+    if (!landlord || landlord._pwHash !== simpleHash(password)) { showAuthError('landlord', 'Invalid email or password.'); return; }
+    loginAsLandlord(landlord); return;
+  }
+  authSubmitInFlight = true;
+  const { signInWithEmailAndPassword } = window._offrezFns;
+  signInWithEmailAndPassword(window._offrezAuth, email, password)
+    .then(async (cred) => {
+      const uid = cred.user.uid;
+      let landlord = DB.landlords.find(l => l.id === uid);
+      if (!landlord) {
+        landlord = await fetchDocFromFirestore('landlords', uid);
+        if (landlord) { DB.landlords.push(landlord); saveDB(); }
+      }
+      if (!landlord) { showAuthError('landlord', 'Account found but profile data is missing. Please contact support.'); return; }
+      loginAsLandlord(landlord);
+    })
+    .catch(err => showAuthError('landlord', friendlyAuthError(err)))
+    .finally(() => { authSubmitInFlight = false; });
+}
+function loginAsLandlord(landlord) {
+  currentUser = { role: 'landlord', id: landlord.id };
+  closeAuth();
+  document.getElementById('splashGate').style.display = 'none';
+  launchLandlordApp(landlord);
+}
+function friendlyAuthError(err) {
+  const code = err?.code || '';
+  if (code.includes('email-already-in-use')) return 'An account with this email already exists. Please log in instead.';
+  if (code.includes('invalid-email')) return 'Please enter a valid email address.';
+  if (code.includes('weak-password')) return 'Password must be at least 6 characters.';
+  if (code.includes('user-not-found') || code.includes('wrong-password') || code.includes('invalid-credential')) return 'Invalid email or password. If you signed up with Google, tap "Continue with Google", or use "Forgot password" to set a password.';
+  if (code.includes('network-request-failed')) return 'Network error — please check your connection and try again.';
+  if (code.includes('too-many-requests')) return 'Too many attempts. Please wait a moment and try again.';
+  if (code.includes('operation-not-allowed')) return 'Email/password sign-in isn\'t turned on for Offrez yet. Please tell the Admin Office to enable it in Firebase Console → Authentication → Sign-in method.';
+  return 'Something went wrong. Please try again.';
+}
+
+// ============================================================
+// EMAIL VERIFICATION NOTICE
+// ============================================================
+function showEmailVerificationNotice(role, email) {
+  const el = document.getElementById(role + 'VerifyNotice');
+  if (!el) return;
+  el.innerHTML = `<i class="fa-solid fa-envelope-circle-check"></i> We've sent a verification link to <strong>${email}</strong>. Please check your inbox (and spam folder) to verify your account.`;
+  el.style.display = 'block';
+}
+
+// ============================================================
+// FORGOT PASSWORD (real Firebase password reset email)
+// ============================================================
+function openForgotPassword(role) {
+  document.querySelectorAll('.auth-screen').forEach(s => s.classList.remove('show'));
+  document.getElementById('forgotPasswordRole').value = role;
+  document.getElementById('forgotPasswordEmail').value = '';
+  document.getElementById('forgotPasswordError').style.display = 'none';
+  document.getElementById('forgotPasswordFormStep').style.display = 'block';
+  document.getElementById('forgotPasswordSuccessStep').style.display = 'none';
+  document.getElementById('forgotPasswordSub').textContent = role === 'landlord'
+    ? 'Enter the email you registered your landlord account with — we\'ll send you a real reset link.'
+    : 'Enter the email you registered with — we\'ll send you a real reset link.';
+  document.getElementById('forgotPasswordScreen').classList.add('show');
+}
+function closeForgotPassword() {
+  document.getElementById('forgotPasswordScreen').classList.remove('show');
+  const role = document.getElementById('forgotPasswordRole').value;
+  if (role) openAuth(role, 'login');
+}
+function submitForgotPassword() {
+  const role = document.getElementById('forgotPasswordRole').value;
+  const email = document.getElementById('forgotPasswordEmail').value.trim().toLowerCase();
+  const errEl = document.getElementById('forgotPasswordError');
+  errEl.style.display = 'none';
+  if (!isValidEmail(email)) {
+    errEl.querySelector('span').textContent = 'Please enter a real, valid email address.';
+    errEl.style.display = 'flex';
+    return;
+  }
+  if (!window._offrezAuth) {
+    errEl.querySelector('span').textContent = 'Password reset requires an internet connection. Please try again when online.';
+    errEl.style.display = 'flex';
+    return;
+  }
+  if (authSubmitInFlight) return;
+  authSubmitInFlight = true;
+  const { sendPasswordResetEmail } = window._offrezFns;
+  sendPasswordResetEmail(window._offrezAuth, email)
+    .then(() => {
+      document.getElementById('forgotPasswordSentTo').textContent = email;
+      document.getElementById('forgotPasswordFormStep').style.display = 'none';
+      document.getElementById('forgotPasswordSuccessStep').style.display = 'block';
+    })
+    .catch(err => {
+      // Firebase intentionally reports "user-not-found" too — but for privacy,
+      // real-world apps usually show the same success screen either way so an
+      // attacker can't use this form to discover which emails are registered.
+      if ((err.code||'').includes('user-not-found')) {
+        document.getElementById('forgotPasswordSentTo').textContent = email;
+        document.getElementById('forgotPasswordFormStep').style.display = 'none';
+        document.getElementById('forgotPasswordSuccessStep').style.display = 'block';
+        return;
+      }
+      errEl.querySelector('span').textContent = friendlyAuthError(err);
+      errEl.style.display = 'flex';
+    })
+    .finally(() => { authSubmitInFlight = false; });
+}
+
+// ============================================================
+// STUDENT ID UNIQUENESS
+// Enforces "one Student ID = one account". Checks the local synced
+// cache first, then falls back to a direct Firestore query so this
+// is reliable even the instant after a fresh page load.
+// ============================================================
+async function isStudentIdTaken(regNumber, excludeUid) {
+  const norm = regNumber.trim().toLowerCase();
+  if (!norm) return false;
+  if (DB.students.some(s => s.id !== excludeUid && (s.regNumber || '').trim().toLowerCase() === norm)) return true;
+  if (window._offrezDB) {
+    try {
+      const { collection, query, where, getDocs } = window._offrezFns;
+      const q = query(collection(window._offrezDB, 'students'), where('regNumber', '==', regNumber.trim()));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) { if (d.id !== excludeUid) return true; }
+    } catch (e) { console.warn('Student ID uniqueness check failed:', e.message); }
+  }
+  return false;
+}
+
+// ============================================================
+// SHARED HELPERS
+// ============================================================
+function fmtMoney(n) { return '$' + (parseFloat(n)||0).toFixed(0); }
+function fmtDate(d) { if (!d) return 'N/A'; return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtDateTime(d) { if (!d) return 'N/A'; const dt = new Date(d); return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' ' + dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
+function getLandlord(id) { return DB.landlords.find(l => l.id === id); }
+function getStudent(id) { return DB.students.find(s => s.id === id); }
+function getProperty(id) { return DB.properties.find(p => p.id === id); }
+function starsHtml(rating) {
+  const r = Math.round(parseFloat(rating)||0);
+  let html = '';
+  for (let i=0;i<5;i++) html += `<i class="fa-${i<r?'solid':'regular'} fa-star"></i>`;
+  return html;
+}
+function closeModal2(id) { document.getElementById(id).classList.remove('open'); }
+function openModal2(id) { document.getElementById(id).classList.add('open'); }
+function logoutApp(role) {
+  if (!confirm('Log out of Offrez?')) return;
+  document.querySelectorAll('.app-shell').forEach(s => s.classList.remove('show'));
+  currentUser = null;
+  if (window._offrezAuth) {
+    const { signOut } = window._offrezFns;
+    signOut(window._offrezAuth).catch(() => {});
+  }
+  document.getElementById('splashGate').style.display = 'flex';
+  refreshSplashStats();
+}
+
+// ============================================================
+// PROPERTY CARD RENDERING (shared by browse/favorites/landlord views)
+// ============================================================
+function propertyCardHtml(p, opts) {
+  opts = opts || {};
+  const landlord = getLandlord(p.landlordId);
+  const isFav = opts.studentId && DB.students.find(s=>s.id===opts.studentId)?.favorites?.includes(p.id);
+  const cover = (p.photos && p.photos[0]) ? `<img src="${p.photos[0]}" alt="${p.title}" style="width:100%;height:100%;object-fit:cover;">` : `<i class="fa-solid fa-house-chimney"></i>`;
+  const photoCountBadge = (p.photos && p.photos.length) ? `<span class="listing-badge" style="background:rgba(11,31,77,0.65);color:#fff;"><i class="fa-solid fa-image"></i> ${p.photos.length}</span>` : '';
+  return `
+  <div class="listing-card" onclick="${opts.noClick ? '' : `openPropertyDetail('${p.id}')`}">
+    <div class="listing-thumb">
+      ${cover}
+      <div class="badge-row">
+        <span class="listing-badge ${p.verified ? 'badge-verified' : 'badge-unverified'}"><i class="fa-solid ${p.verified?'fa-circle-check':'fa-clock'}"></i> ${p.verified?'Verified':'Pending'}</span>
+        ${opts.showFav ? `<button class="listing-fav-btn ${isFav?'fav-btn-active':''}" onclick="event.stopPropagation();toggleFavorite('${p.id}')"><i class="fa-${isFav?'solid':'regular'} fa-heart"></i></button>` : ''}
+      </div>
+      ${photoCountBadge ? `<div style="position:absolute;bottom:8px;left:8px;">${photoCountBadge}</div>` : ''}
+    </div>
+    <div class="listing-body">
+      <div class="listing-price">${fmtMoney(p.price)}<span>/month</span></div>
+      <div class="listing-title">${p.title}</div>
+      <div class="listing-meta"><i class="fa-solid fa-location-dot"></i> ${p.area} · ${p.distanceKm}km from campus</div>
+      <div class="listing-meta"><i class="fa-solid fa-door-open"></i> ${p.roomType} · ${p.genderPref}</div>
+      <div class="listing-tags">${(p.amenities||[]).slice(0,3).map(a=>`<span class="listing-tag">${a}</span>`).join('')}</div>
+      <div class="listing-rating">${starsHtml(p.rating)} <span style="color:var(--text-muted);font-weight:400;">(${p.reviewsCount||0})</span></div>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// FILTERING / SORTING
+// ============================================================
+function getFilteredProperties() {
+  const area = document.getElementById('f-area')?.value || '';
+  const roomType = document.getElementById('f-roomtype')?.value || '';
+  const gender = document.getElementById('f-gender')?.value || '';
+  const maxPrice = parseFloat(document.getElementById('f-maxprice')?.value) || Infinity;
+  const search = (document.getElementById('f-search')?.value || '').toLowerCase();
+  const sort = document.getElementById('f-sort')?.value || 'newest';
+
+  let list = DB.properties.filter(p => {
+    if (area && p.area !== area) return false;
+    if (roomType && p.roomType !== roomType) return false;
+    if (gender && p.genderPref !== gender) return false;
+    if (p.price > maxPrice) return false;
+    if (search && !`${p.title} ${p.area} ${p.description}`.toLowerCase().includes(search)) return false;
+    if (p.status === 'Removed') return false;
+    return true;
+  });
+
+  switch (sort) {
+    case 'price-asc': list.sort((a,b)=>a.price-b.price); break;
+    case 'price-desc': list.sort((a,b)=>b.price-a.price); break;
+    case 'distance': list.sort((a,b)=>parseFloat(a.distanceKm)-parseFloat(b.distanceKm)); break;
+    case 'rating': list.sort((a,b)=>parseFloat(b.rating)-parseFloat(a.rating)); break;
+    default: list.sort((a,b)=>new Date(b.created)-new Date(a.created));
+  }
+  return list;
+}
+function clearFilters() {
+  ['f-area','f-roomtype','f-gender','f-maxprice','f-search'].forEach(id => { const el = document.getElementById(id); if (el) el.value=''; });
+  document.getElementById('f-sort').value = 'newest';
+  renderListings();
+}
+function renderListings() {
+  const grid = document.getElementById('listingGrid');
+  if (!grid) return;
+  const list = getFilteredProperties();
+  document.getElementById('listingResultsCount').textContent = `${list.length} room${list.length!==1?'s':''} found`;
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty-row" style="grid-column:1/-1;"><i class="fa-solid fa-house-circle-xmark"></i>No properties match your filters. Try adjusting your search.</div>`;
+    return;
+  }
+  const studentId = currentUser?.role === 'student' ? currentUser.id : null;
+  grid.innerHTML = list.map(p => propertyCardHtml(p, { showFav: true, studentId })).join('');
+}
+
+// ============================================================
+// STUDENT APP
+// ============================================================
+function launchStudentApp(student) {
+  document.getElementById('studentApp').classList.add('show');
+  document.getElementById('studentChipName').textContent = student.fname + ' ' + student.lname;
+  showStudentPage('browse', document.querySelector('#studentNav .app-nav-link'));
+  const pending = sessionStorage.getItem('offrez_pending_search');
+  if (pending) { document.getElementById('f-search').value = pending; sessionStorage.removeItem('offrez_pending_search'); }
+  renderListings();
+}
+const studentPageTitles = { browse:'Browse', favorites:'Favourites', bookings:'My Bookings', messages:'Messages', profile:'Profile' };
+let currentStudentPageName = 'browse';
+function showStudentPage(name, el) {
+  currentStudentPageName = name;
+  document.querySelectorAll('#studentApp .app-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#studentNav .app-nav-link').forEach(n => n.classList.remove('active'));
+  document.getElementById('student-page-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('studentNav').classList.remove('mobile-open');
+  if (name === 'browse') renderListings();
+  if (name === 'favorites') renderFavorites();
+  if (name === 'bookings') renderStudentBookings();
+  if (name === 'messages') renderStudentMessages();
+  if (name === 'profile') renderStudentProfile();
+}
+
+function toggleFavorite(propertyId) {
+  if (!currentUser || currentUser.role !== 'student') return;
+  const student = getStudent(currentUser.id);
+  if (!student.favorites) student.favorites = [];
+  const idx = student.favorites.indexOf(propertyId);
+  if (idx >= 0) student.favorites.splice(idx,1); else student.favorites.push(propertyId);
+  saveDB();
+  syncDocToFirestore('students', student.id, student);
+  renderListings();
+  renderFavorites();
+}
+function renderFavorites() {
+  const grid = document.getElementById('favoritesGrid');
+  if (!grid) return;
+  const student = getStudent(currentUser.id);
+  const favs = (student.favorites||[]).map(id => getProperty(id)).filter(Boolean);
+  if (!favs.length) {
+    grid.innerHTML = `<div class="empty-row" style="grid-column:1/-1;"><i class="fa-solid fa-heart-crack"></i>No favourites yet. Browse rooms and tap the heart icon to save them here.</div>`;
+    return;
+  }
+  grid.innerHTML = favs.map(p => propertyCardHtml(p, { showFav: true, studentId: student.id })).join('');
+}
+
+// ---------- PROPERTY DETAIL MODAL ----------
+let currentDetailPropertyId = null;
+function switchGalleryPhoto(thumbEl, src) {
+  const main = document.getElementById('galleryMain');
+  if (main) main.innerHTML = `<img src="${src}" id="galleryMainImg">`;
+  document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
+  thumbEl.classList.add('active');
+}
+function openPropertyDetail(propertyId) {
+  const p = getProperty(propertyId);
+  if (!p) return;
+  currentDetailPropertyId = propertyId;
+  const landlord = getLandlord(p.landlordId);
+  const reviews = DB.reviews.filter(r => r.propertyId === propertyId);
+  const isStudent = currentUser?.role === 'student';
+  const student = isStudent ? getStudent(currentUser.id) : null;
+  const isFav = student?.favorites?.includes(propertyId);
+
+  const photos = (p.photos && p.photos.length) ? p.photos : [];
+  const galleryMainHtml = photos.length
+    ? `<img src="${photos[0]}" id="galleryMainImg" alt="${p.title}">`
+    : `<i class="fa-solid fa-house-chimney"></i>`;
+  const galleryThumbsHtml = photos.length > 1
+    ? `<div class="gallery-thumbs">${photos.map((src,i) => `<div class="gallery-thumb ${i===0?'active':''}" onclick="switchGalleryPhoto(this,'${src.replace(/'/g,"\\'")}')"><img src="${src}" alt="Photo ${i+1}"></div>`).join('')}</div>`
+    : '';
+
+  document.getElementById('propertyDetailBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:24px;">
+      <div>
+        <div class="gallery-main" id="galleryMain">
+          ${galleryMainHtml}
+        </div>
+        ${galleryThumbsHtml}
+        <h2 style="font-family:'Playfair Display',serif;color:var(--navy);margin-bottom:6px;">${p.title}</h2>
+        <div style="color:var(--text-muted);font-size:13.5px;margin-bottom:10px;"><i class="fa-solid fa-location-dot"></i> ${p.area} · ${p.distanceKm}km from BUSE campus</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+          <span class="badge-pill pill-blue">${p.roomType}</span>
+          <span class="badge-pill pill-purple">${p.genderPref}</span>
+          <span class="badge-pill ${p.verified?'pill-green':'pill-gold'}">${p.verified?'Verified':'Pending Verification'}</span>
+          <span class="badge-pill pill-gold">${p.bedrooms} bed · ${p.capacity} student${p.capacity!==1?'s':''}</span>
+        </div>
+        <p style="color:var(--text);font-size:13.5px;line-height:1.7;margin-bottom:16px;">${p.description}</p>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--navy);">Amenities</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px;">${(p.amenities||[]).map(a=>`<span class="listing-tag">${a}</span>`).join('')}</div>
+
+        <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--navy);">Reviews (${reviews.length}) — ${starsHtml(p.rating)} ${p.rating}</div>
+        <div id="propertyReviewsList">
+          ${reviews.length ? reviews.map(r => {
+            const s = getStudent(r.studentId);
+            return `<div style="border-bottom:1px solid var(--border);padding:10px 0;">
+              <div style="display:flex;justify-content:space-between;"><strong style="font-size:13px;">${s?s.fname+' '+s.lname[0]+'.':'Student'}</strong><span style="color:var(--gold-dark);">${starsHtml(r.rating)}</span></div>
+              <div style="font-size:12.5px;color:var(--text-muted);margin-top:4px;">${r.comment}</div>
+              <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px;">${fmtDate(r.date)}</div>
+            </div>`;
+          }).join('') : '<p style="color:var(--text-muted);font-size:13px;">No reviews yet.</p>'}
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:14px;">
+          <div class="listing-price" style="font-size:26px;">${fmtMoney(p.price)}<span>/month</span></div>
+        </div>
+        <div class="card">
+          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--navy);">Landlord</div>
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:6px;">
+            <div style="width:38px;height:38px;border-radius:50%;background:var(--navy3);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;">${landlord?landlord.fname[0]:'?'}</div>
+            <div><div style="font-weight:600;font-size:13px;">${landlord?landlord.fname+' '+landlord.lname:'Unknown'}</div><div style="font-size:11px;color:var(--text-muted);">${landlord?.business||'Independent Landlord'}</div></div>
+          </div>
+          <div style="font-size:12.5px;color:var(--text-muted);"><i class="fa-solid fa-phone"></i> ${landlord?.phone||'N/A'}</div>
+        </div>
+      </div>
+    </div>`;
+
+  let footerHtml = `<button class="btn btn-outline" onclick="closeModal2('propertyDetailModal')">Close</button>`;
+  if (isStudent) {
+    footerHtml = `
+      <button class="btn btn-outline" onclick="toggleFavorite('${p.id}');openPropertyDetail('${p.id}')"><i class="fa-${isFav?'solid':'regular'} fa-heart"></i> ${isFav?'Saved':'Save'}</button>
+      <button class="btn btn-blue" onclick="closeModal2('propertyDetailModal');openMessageThread('${p.landlordId}','${p.id}')"><i class="fa-solid fa-comment"></i> Message Landlord</button>
+      <button class="btn btn-purple" onclick="closeModal2('propertyDetailModal');openReviewForm('${p.id}')"><i class="fa-solid fa-star"></i> Leave Review</button>
+      <button class="btn btn-gold" onclick="closeModal2('propertyDetailModal');openBookingForm('${p.id}')"><i class="fa-solid fa-calendar-check"></i> Request Booking</button>`;
+  } else if (currentUser?.role === 'landlord' && p.landlordId === currentUser.id) {
+    footerHtml = `
+      <button class="btn btn-outline" onclick="closeModal2('propertyDetailModal')">Close</button>
+      <button class="btn btn-gold" onclick="closeModal2('propertyDetailModal');openPropertyModal('${p.id}')"><i class="fa-solid fa-pen"></i> Edit Property</button>`;
+  }
+  document.getElementById('propertyDetailFooter').innerHTML = footerHtml;
+  openModal2('propertyDetailModal');
+}
+
+// ---------- BOOKING ----------
+function openBookingForm(propertyId) {
+  document.getElementById('bf-property-id').value = propertyId;
+  document.getElementById('bf-movein').value = '';
+  document.getElementById('bf-message').value = '';
+  document.getElementById('bookingFormAlert').innerHTML = '';
+  openModal2('bookingFormModal');
+}
+function submitBooking() {
+  const propertyId = document.getElementById('bf-property-id').value;
+  const movein = document.getElementById('bf-movein').value;
+  const message = document.getElementById('bf-message').value.trim();
+  if (!movein) {
+    document.getElementById('bookingFormAlert').innerHTML = `<div class="alert-box alert-error"><i class="fa-solid fa-circle-exclamation"></i> Please select a preferred move-in date.</div>`;
+    return;
+  }
+  const p = getProperty(propertyId);
+  const booking = {
+    id: genId('BK'), propertyId, studentId: currentUser.id, landlordId: p.landlordId,
+    movein, message, status: 'Pending', created: new Date().toISOString()
+  };
+  DB.bookings.push(booking);
+  syncDocToFirestore('bookings', booking.id, booking);
+  // auto-send the message too, if provided
+  if (message) {
+    const msg = { id: genId('MSG'), propertyId, fromId: currentUser.id, toId: p.landlordId, fromRole:'student', body: message, date: new Date().toISOString() };
+    DB.messages.push(msg);
+    syncDocToFirestore('messages', msg.id, msg);
+  }
+  saveDB();
+  closeModal2('bookingFormModal');
+  alert('Booking request sent! The landlord will respond shortly.');
+  renderStudentBookings();
+}
+function renderStudentBookings() {
+  const tbody = document.getElementById('studentBookingsTable');
+  if (!tbody) return;
+  const mine = DB.bookings.filter(b => b.studentId === currentUser.id);
+  if (!mine.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-row"><i class="fa-solid fa-calendar-xmark"></i>No bookings yet. Browse rooms and request a booking.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = [...mine].reverse().map(b => {
+    const p = getProperty(b.propertyId); const l = getLandlord(b.landlordId);
+    const pillClass = b.status==='Approved'?'pill-blue':b.status==='Declined'?'pill-red':b.status==='Confirmed'?'pill-green':'pill-gold';
+    let actionBtn = `<button class="btn btn-outline btn-sm" onclick="openPropertyDetail('${b.propertyId}')">View</button>`;
+    if (b.status === 'Approved') {
+      actionBtn = `<button class="btn btn-gold btn-sm" onclick="openPaymentModal('${b.id}')"><i class="fa-solid fa-credit-card"></i> Pay Deposit</button>`;
+    } else if (b.status === 'Confirmed') {
+      actionBtn = `<button class="btn btn-outline btn-sm" onclick="viewPaymentReceipt('${b.id}')"><i class="fa-solid fa-receipt"></i> Receipt</button>`;
+    }
+    return `<tr>
+      <td style="font-weight:600;">${p?p.title:'Deleted listing'}</td>
+      <td>${l?l.fname+' '+l.lname:'N/A'}</td>
+      <td>${p?fmtMoney(p.price):'N/A'}</td>
+      <td>${fmtDate(b.movein)}</td>
+      <td><span class="badge-pill ${pillClass}">${b.status}</span></td>
+      <td>${fmtDate(b.created)}</td>
+      <td>${actionBtn}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
+// PAYMENTS (Deposit payment once booking is approved)
+// ============================================================
+const PAYMENT_FIELD_TEMPLATES = {
+  'EcoCash': `<div class="field"><label>EcoCash Mobile Number</label><input class="input" id="pay-field-1" placeholder="07X XXX XXXX"></div>`,
+  'OneMoney': `<div class="field"><label>OneMoney Mobile Number</label><input class="input" id="pay-field-1" placeholder="07X XXX XXXX"></div>`,
+  'Visa/Mastercard': `<div class="field-row"><div class="field"><label>Card Number</label><input class="input" id="pay-field-1" placeholder="0000 0000 0000 0000"></div><div class="field"><label>Expiry / CVV</label><input class="input" id="pay-field-2" placeholder="MM/YY · CVV"></div></div>`,
+  'Bank Transfer': `<div class="field"><label>Sender Bank Account / Reference</label><input class="input" id="pay-field-1" placeholder="Account number used for transfer"></div>`
+};
+function depositAmountFor(property) {
+  // Standard deposit = 1 month's rent
+  return parseFloat(property?.price || 0);
+}
+function openPaymentModal(bookingId) {
+  const b = DB.bookings.find(x => x.id === bookingId);
+  if (!b) return;
+  const p = getProperty(b.propertyId);
+  document.getElementById('pay-booking-id').value = bookingId;
+  document.getElementById('pay-summary-title').textContent = p ? p.title : 'N/A';
+  document.getElementById('pay-summary-movein').textContent = fmtDate(b.movein);
+  document.getElementById('pay-summary-rent').textContent = fmtMoney(p?.price);
+  document.getElementById('pay-summary-deposit').textContent = fmtMoney(depositAmountFor(p));
+  document.querySelectorAll('.payment-method-card').forEach((c,i) => c.classList.toggle('selected', i===0));
+  renderPaymentMethodFields('EcoCash');
+  document.getElementById('paymentFormAlert').innerHTML = '';
+  document.getElementById('paymentStep1').style.display = 'block';
+  document.getElementById('paymentStep2').style.display = 'none';
+  document.getElementById('paymentModalFooter').style.display = 'flex';
+  document.getElementById('paymentModalTitle').innerHTML = '<i class="fa-solid fa-credit-card"></i> Pay Deposit';
+  openModal2('paymentModal');
+}
+function selectPaymentMethod(el) {
+  document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  renderPaymentMethodFields(el.getAttribute('data-method'));
+}
+function renderPaymentMethodFields(method) {
+  document.getElementById('paymentMethodFields').innerHTML = PAYMENT_FIELD_TEMPLATES[method] || '';
+}
+function processPayment() {
+  const bookingId = document.getElementById('pay-booking-id').value;
+  const b = DB.bookings.find(x => x.id === bookingId);
+  if (!b) return;
+  const methodCard = document.querySelector('.payment-method-card.selected');
+  const method = methodCard ? methodCard.getAttribute('data-method') : 'EcoCash';
+  const field1 = document.getElementById('pay-field-1')?.value.trim();
+  if (!field1) {
+    document.getElementById('paymentFormAlert').innerHTML = `<div class="alert-box alert-error"><i class="fa-solid fa-circle-exclamation"></i> Please fill in your payment details.</div>`;
+    return;
+  }
+  const p = getProperty(b.propertyId);
+  const amount = depositAmountFor(p);
+  const receiptNo = 'PAY-' + Date.now().toString().slice(-8);
+  const payment = {
+    id: genId('PMT'), bookingId, propertyId: b.propertyId, studentId: b.studentId, landlordId: b.landlordId,
+    amount, method, receiptNo, date: new Date().toISOString()
+  };
+  DB.payments = DB.payments || [];
+  DB.payments.push(payment);
+  b.status = 'Confirmed';
+  b.paymentId = payment.id;
+  // notify landlord via chat
+  const sysMsg = { id: genId('MSG'), propertyId: b.propertyId, fromId: b.studentId, toId: b.landlordId, fromRole:'student', body: `💰 Deposit of ${fmtMoney(amount)} paid via ${method}. Booking confirmed! Receipt: ${receiptNo}`, date: new Date().toISOString(), system: true };
+  DB.messages.push(sysMsg);
+  saveDB();
+  syncDocToFirestore('payments', payment.id, payment);
+  syncDocToFirestore('bookings', b.id, b);
+  syncDocToFirestore('messages', sysMsg.id, sysMsg);
+
+  // Show success step with receipt
+  document.getElementById('paymentStep1').style.display = 'none';
+  document.getElementById('paymentStep2').style.display = 'block';
+  document.getElementById('paymentModalTitle').innerHTML = '<i class="fa-solid fa-circle-check"></i> Payment Confirmed';
+  document.getElementById('paymentReceiptBox').innerHTML = `
+    <div class="payment-receipt-row"><span>Receipt No.</span><span style="font-weight:700;">${receiptNo}</span></div>
+    <div class="payment-receipt-row"><span>Property</span><span>${p?p.title:'N/A'}</span></div>
+    <div class="payment-receipt-row"><span>Amount Paid</span><span style="font-weight:700;color:var(--green);">${fmtMoney(amount)}</span></div>
+    <div class="payment-receipt-row"><span>Payment Method</span><span>${method}</span></div>
+    <div class="payment-receipt-row" style="border-bottom:none;"><span>Date</span><span>${fmtDateTime(payment.date)}</span></div>
+  `;
+  document.getElementById('paymentModalFooter').innerHTML = `<button class="btn btn-gold btn-block" onclick="closeModal2('paymentModal');renderStudentBookings();">Done</button>`;
+}
+function viewPaymentReceipt(bookingId) {
+  const b = DB.bookings.find(x => x.id === bookingId);
+  if (!b) return;
+  const payment = (DB.payments||[]).find(pm => pm.id === b.paymentId);
+  if (!payment) { alert('No receipt found for this booking.'); return; }
+  const p = getProperty(b.propertyId);
+  document.getElementById('pay-booking-id').value = bookingId;
+  document.getElementById('paymentStep1').style.display = 'none';
+  document.getElementById('paymentStep2').style.display = 'block';
+  document.getElementById('paymentModalTitle').innerHTML = '<i class="fa-solid fa-receipt"></i> Payment Receipt';
+  document.querySelector('#paymentStep2 .payment-success-box').innerHTML = `
+    <i class="fa-solid fa-circle-check"></i>
+    <h3>Booking Confirmed</h3>
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Here are your payment details on file.</p>`;
+  document.getElementById('paymentReceiptBox').innerHTML = `
+    <div class="payment-receipt-row"><span>Receipt No.</span><span style="font-weight:700;">${payment.receiptNo}</span></div>
+    <div class="payment-receipt-row"><span>Property</span><span>${p?p.title:'N/A'}</span></div>
+    <div class="payment-receipt-row"><span>Amount Paid</span><span style="font-weight:700;color:var(--green);">${fmtMoney(payment.amount)}</span></div>
+    <div class="payment-receipt-row"><span>Payment Method</span><span>${payment.method}</span></div>
+    <div class="payment-receipt-row" style="border-bottom:none;"><span>Date</span><span>${fmtDateTime(payment.date)}</span></div>
+  `;
+  document.getElementById('paymentModalFooter').innerHTML = `<button class="btn btn-outline btn-block" onclick="closeModal2('paymentModal')">Close</button>`;
+  openModal2('paymentModal');
+}
+
+// ---------- MESSAGING ----------
+function openMessageThread(otherId, propertyId) {
+  document.getElementById('mt-property-id').value = propertyId || '';
+  document.getElementById('mt-other-id').value = otherId;
+  document.getElementById('mt-new-message').value = '';
+  const other = getLandlord(otherId) || getStudent(otherId);
+  const p = propertyId ? getProperty(propertyId) : null;
+  document.getElementById('messageThreadTitle').innerHTML = `<i class="fa-solid fa-comments"></i> ${other ? other.fname+' '+other.lname : 'Conversation'}${p ? ` <span style="font-size:11px;color:var(--text-muted);font-weight:400;">· ${p.title}</span>` : ''}`;
+  renderMessageThread();
+  renderChatQuickReplies();
+  openModal2('messageThreadModal');
+  setTimeout(() => document.getElementById('mt-new-message').focus(), 150);
+}
+function renderChatQuickReplies() {
+  const wrap = document.getElementById('chatQuickReplies');
+  if (!wrap) return;
+  const replies = currentUser.role === 'student'
+    ? ['Is this room still available?', 'Can I schedule a viewing?', 'Is the price negotiable?', 'What\'s included in the rent?']
+    : ['Yes, it\'s still available!', 'Sure, when would you like to view it?', 'The rent is fixed, but utilities are included.', 'Please send your booking request and I\'ll confirm.'];
+  wrap.innerHTML = replies.map(r => `<button class="chat-quick-btn" onclick="document.getElementById('mt-new-message').value=${JSON.stringify(r)};sendThreadMessage();">${r}</button>`).join('');
+}
+function renderMessageThread() {
+  const otherId = document.getElementById('mt-other-id').value;
+  const propertyId = document.getElementById('mt-property-id').value;
+  const myId = currentUser.id;
+  const thread = DB.messages.filter(m =>
+    (m.fromId === myId && m.toId === otherId) || (m.fromId === otherId && m.toId === myId)
+  ).filter(m => !propertyId || m.propertyId === propertyId)
+   .sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const body = document.getElementById('messageThreadBody');
+  if (!thread.length) {
+    body.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:20px;font-size:13px;"><i class="fa-regular fa-comments" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border);"></i>No messages yet. Say hello!</div>`;
+    return;
+  }
+  body.innerHTML = thread.map(m => {
+    const mine = m.fromId === myId;
+    if (m.system) {
+      return `<div class="chat-bubble-row"><div class="chat-bubble system">${m.body}</div></div>`;
+    }
+    return `<div class="chat-bubble-row" style="justify-content:${mine?'flex-end':'flex-start'};">
+      <div class="chat-bubble ${mine?'mine':'theirs'}">
+        ${m.body}
+        <div class="chat-time">${fmtDateTime(m.date)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  body.scrollTop = body.scrollHeight;
+}
+function sendThreadMessage() {
+  const otherId = document.getElementById('mt-other-id').value;
+  const propertyId = document.getElementById('mt-property-id').value;
+  const text = document.getElementById('mt-new-message').value.trim();
+  if (!text) return;
+  const msg = { id: genId('MSG'), propertyId, fromId: currentUser.id, toId: otherId, fromRole: currentUser.role, body: text, date: new Date().toISOString() };
+  DB.messages.push(msg);
+  saveDB();
+  syncDocToFirestore('messages', msg.id, msg);
+  document.getElementById('mt-new-message').value = '';
+  renderMessageThread();
+  renderStudentMessages(); renderLandlordMessages();
+}
+function getConversationsFor(userId) {
+  const map = new Map();
+  DB.messages.forEach(m => {
+    const otherId = m.fromId === userId ? m.toId : (m.toId === userId ? m.fromId : null);
+    if (!otherId) return;
+    const key = otherId + '|' + (m.propertyId||'');
+    const existing = map.get(key);
+    if (!existing || new Date(m.date) > new Date(existing.date)) map.set(key, { otherId, propertyId: m.propertyId, date: m.date, body: m.body, fromId: m.fromId });
+  });
+  return Array.from(map.values()).sort((a,b)=>new Date(b.date)-new Date(a.date));
+}
+function renderStudentMessages() {
+  const list = document.getElementById('studentMessagesList');
+  if (!list) return;
+  const convos = getConversationsFor(currentUser.id);
+  if (!convos.length) {
+    list.innerHTML = `<div class="empty-row"><i class="fa-solid fa-comment-slash"></i>No conversations yet. Message a landlord from a property page.</div>`;
+    return;
+  }
+  list.innerHTML = convos.map(c => {
+    const landlord = getLandlord(c.otherId);
+    const p = getProperty(c.propertyId);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="openMessageThread('${c.otherId}','${c.propertyId||''}')">
+      <div>
+        <div style="font-weight:600;font-size:13.5px;">${landlord?landlord.fname+' '+landlord.lname:'Landlord'} ${p?'· '+p.title:''}</div>
+        <div style="font-size:12px;color:var(--text-muted);max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.body}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);">${fmtDate(c.date)}</div>
+    </div>`;
+  }).join('');
+}
+function renderLandlordMessages() {
+  const list = document.getElementById('landlordMessagesList');
+  if (!list) return;
+  const convos = getConversationsFor(currentUser.id);
+  if (!convos.length) {
+    list.innerHTML = `<div class="empty-row"><i class="fa-solid fa-comment-slash"></i>No conversations yet.</div>`;
+    return;
+  }
+  list.innerHTML = convos.map(c => {
+    const student = getStudent(c.otherId);
+    const p = getProperty(c.propertyId);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="openMessageThread('${c.otherId}','${c.propertyId||''}')">
+      <div>
+        <div style="font-weight:600;font-size:13.5px;">${student?student.fname+' '+student.lname:'Student'} ${p?'· '+p.title:''}</div>
+        <div style="font-size:12px;color:var(--text-muted);max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.body}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);">${fmtDate(c.date)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ---------- REVIEWS ----------
+function openReviewForm(propertyId) {
+  document.getElementById('rf-property-id').value = propertyId;
+  document.getElementById('rf-rating').value = '5';
+  document.getElementById('rf-comment').value = '';
+  openModal2('reviewFormModal');
+}
+function submitReview() {
+  const propertyId = document.getElementById('rf-property-id').value;
+  const rating = parseInt(document.getElementById('rf-rating').value);
+  const comment = document.getElementById('rf-comment').value.trim();
+  if (!comment) { alert('Please write a short comment.'); return; }
+  const review = { id: genId('REV'), propertyId, studentId: currentUser.id, rating, comment, date: new Date().toISOString() };
+  DB.reviews.push(review);
+  syncDocToFirestore('reviews', review.id, review);
+  // recompute property rating
+  const p = getProperty(propertyId);
+  const allReviews = DB.reviews.filter(r => r.propertyId === propertyId);
+  p.rating = (allReviews.reduce((s,r)=>s+r.rating,0) / allReviews.length).toFixed(1);
+  p.reviewsCount = allReviews.length;
+  saveDB();
+  syncDocToFirestore('properties', p.id, p);
+  closeModal2('reviewFormModal');
+  renderListings();
+  openPropertyDetail(propertyId);
+}
+
+// ---------- STUDENT PROFILE ----------
+function renderStudentProfile() {
+  const student = getStudent(currentUser.id);
+  document.getElementById('studentProfileBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--navy3);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;">${student.fname[0]}</div>
+      <div><div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--navy);">${student.fname} ${student.lname}</div><div style="font-size:12px;color:var(--text-muted);">${student.faculty||'BUSE Student'}</div></div>
+    </div>
+    ${[['Registration No.', student.regNumber||'N/A'],['Email', student.email],['Phone', student.phone||'N/A'],['Gender', student.gender||'N/A'],['Faculty / Programme', student.faculty||'N/A'],['Member Since', fmtDate(student.joined)]]
+      .map(([l,v]) => `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="color:var(--text-muted);">${l}</span><span style="font-weight:600;">${v}</span></div>`).join('')}
+  `;
+}
+
+// ============================================================
+// LANDLORD APP
+// ============================================================
+function launchLandlordApp(landlord) {
+  document.getElementById('landlordApp').classList.add('show');
+  document.getElementById('landlordChipName').textContent = landlord.fname + ' ' + landlord.lname;
+  document.getElementById('landlordWelcomeName').textContent = landlord.fname;
+  showLandlordPage('dashboard', document.querySelector('#landlordNav .app-nav-link'));
+}
+let currentLandlordPageName = 'dashboard';
+function showLandlordPage(name, el) {
+  currentLandlordPageName = name;
+  document.querySelectorAll('#landlordApp .app-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#landlordNav .app-nav-link').forEach(n => n.classList.remove('active'));
+  document.getElementById('landlord-page-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('landlordNav').classList.remove('mobile-open');
+  if (name === 'dashboard') renderLandlordDashboard();
+  if (name === 'properties') renderLandlordProperties();
+  if (name === 'bookings') renderLandlordBookings();
+  if (name === 'messages') renderLandlordMessages();
+  if (name === 'profile') renderLandlordProfile();
+}
+function renderLandlordDashboard() {
+  const myProps = DB.properties.filter(p => p.landlordId === currentUser.id);
+  const myBookings = DB.bookings.filter(b => b.landlordId === currentUser.id);
+  const pending = myBookings.filter(b => b.status === 'Pending').length;
+  const approved = myBookings.filter(b => b.status === 'Approved').length;
+  document.getElementById('landlordStatsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-house-chimney"></i></div><div class="stat-value">${myProps.length}</div><div class="stat-label">Listed Properties</div></div>
+    <div class="stat-card blue"><div class="stat-icon" style="color:var(--blue);"><i class="fa-solid fa-inbox"></i></div><div class="stat-value">${pending}</div><div class="stat-label">Pending Requests</div></div>
+    <div class="stat-card green"><div class="stat-icon" style="color:var(--green);"><i class="fa-solid fa-circle-check"></i></div><div class="stat-value">${approved}</div><div class="stat-label">Approved Bookings</div></div>
+    <div class="stat-card purple"><div class="stat-icon" style="color:var(--purple);"><i class="fa-solid fa-star"></i></div><div class="stat-value">${myProps.length?(myProps.reduce((s,p)=>s+parseFloat(p.rating||0),0)/myProps.length).toFixed(1):'—'}</div><div class="stat-label">Average Rating</div></div>`;
+  const tbody = document.getElementById('landlordRecentBookings');
+  if (!myBookings.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-row"><i class="fa-solid fa-inbox"></i>No booking requests yet.</td></tr>`;
+  } else {
+    tbody.innerHTML = [...myBookings].reverse().slice(0,8).map(b => bookingRowHtml(b)).join('');
+  }
+}
+function renderLandlordProperties() {
+  const grid = document.getElementById('landlordPropertiesGrid');
+  const mine = DB.properties.filter(p => p.landlordId === currentUser.id);
+  if (!mine.length) {
+    grid.innerHTML = `<div class="empty-row" style="grid-column:1/-1;"><i class="fa-solid fa-house-circle-xmark"></i>You haven't listed any properties yet. Click "Add New Property" to get started.</div>`;
+    return;
+  }
+  grid.innerHTML = mine.map(p => propertyCardHtml(p, { noClick: false })).join('');
+}
+function bookingRowHtml(b) {
+  const p = getProperty(b.propertyId); const s = getStudent(b.studentId);
+  const pillClass = b.status==='Approved'?'pill-blue':b.status==='Declined'?'pill-red':b.status==='Confirmed'?'pill-green':'pill-gold';
+  return `<tr>
+    <td style="font-weight:600;">${s?s.fname+' '+s.lname:'Unknown'}</td>
+    <td>${s?.phone||'N/A'}</td>
+    <td>${p?p.title:'Deleted'}</td>
+    <td>${fmtDate(b.movein)}</td>
+    <td><span class="badge-pill ${pillClass}">${b.status}</span></td>
+    <td>${fmtDate(b.created)}</td>
+    <td>
+      ${b.status==='Pending' ? `<button class="btn btn-green btn-sm" onclick="updateBookingStatus('${b.id}','Approved')"><i class="fa-solid fa-check"></i></button> <button class="btn btn-red btn-sm" onclick="updateBookingStatus('${b.id}','Declined')"><i class="fa-solid fa-xmark"></i></button>` : `<button class="btn btn-outline btn-sm" onclick="openMessageThread('${b.studentId}','${b.propertyId}')"><i class="fa-solid fa-comment"></i></button>`}
+    </td>
+  </tr>`;
+}
+function renderLandlordBookings() {
+  const tbody = document.getElementById('landlordAllBookings');
+  const mine = DB.bookings.filter(b => b.landlordId === currentUser.id);
+  if (!mine.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty-row"><i class="fa-solid fa-inbox"></i>No booking requests yet.</td></tr>`; return; }
+  tbody.innerHTML = [...mine].reverse().map(b => bookingRowHtml(b)).join('');
+}
+function updateBookingStatus(bookingId, status) {
+  const b = DB.bookings.find(x => x.id === bookingId);
+  if (!b) return;
+  b.status = status;
+  const p = getProperty(b.propertyId);
+  const sysText = status === 'Approved'
+    ? `✅ Your booking request for "${p?p.title:'this property'}" has been approved! Please pay the deposit to confirm your room.`
+    : `Your booking request for "${p?p.title:'this property'}" was declined.`;
+  const sysMsg = { id: genId('MSG'), propertyId: b.propertyId, fromId: b.landlordId, toId: b.studentId, fromRole: 'landlord', body: sysText, date: new Date().toISOString(), system: true };
+  DB.messages.push(sysMsg);
+  saveDB();
+  syncDocToFirestore('bookings', b.id, b);
+  syncDocToFirestore('messages', sysMsg.id, sysMsg);
+  renderLandlordDashboard(); renderLandlordBookings();
+}
+function renderLandlordProfile() {
+  const l = getLandlord(currentUser.id);
+  document.getElementById('landlordProfileBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--navy3);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;">${l.fname[0]}</div>
+      <div><div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--navy);">${l.fname} ${l.lname}</div><div style="font-size:12px;color:var(--text-muted);">${l.business||'Independent Landlord'}</div></div>
+    </div>
+    ${[['Email', l.email],['Phone', l.phone],['National ID', l.nid||'N/A'],['Verified', l.verified?'Yes':'Pending Verification'],['Member Since', fmtDate(l.joined)]]
+      .map(([k,v]) => `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="color:var(--text-muted);">${k}</span><span style="font-weight:600;">${v}</span></div>`).join('')}
+  `;
+}
+
+// ---------- PROPERTY ADD/EDIT FORM ----------
+let pfPhotosWorking = []; // base64 data URIs for the property form currently open
+
+function openPropertyModal(propertyId) {
+  document.getElementById('propertyFormAlert').innerHTML = '';
+  document.getElementById('pf-photos-filename').textContent = 'No photos selected';
+  document.getElementById('pf-photos').value = '';
+  if (propertyId) {
+    const p = getProperty(propertyId);
+    document.getElementById('propertyFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i> Edit Property';
+    document.getElementById('pf-id').value = p.id;
+    document.getElementById('pf-title').value = p.title;
+    document.getElementById('pf-area').value = p.area;
+    document.getElementById('pf-price').value = p.price;
+    document.getElementById('pf-distance').value = p.distanceKm;
+    document.getElementById('pf-roomtype').value = p.roomType;
+    document.getElementById('pf-gender').value = p.genderPref;
+    document.getElementById('pf-bedrooms').value = p.bedrooms;
+    document.getElementById('pf-capacity').value = p.capacity;
+    document.getElementById('pf-amenities').value = (p.amenities||[]).join(', ');
+    document.getElementById('pf-description').value = p.description;
+    pfPhotosWorking = [...(p.photos||[])];
+  } else {
+    document.getElementById('propertyFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Property';
+    ['pf-id','pf-title','pf-distance','pf-price','pf-amenities','pf-description'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('pf-bedrooms').value = 1;
+    document.getElementById('pf-capacity').value = 1;
+    pfPhotosWorking = [];
+  }
+  renderPfPhotosPreview();
+  openModal2('propertyFormModal');
+}
+
+const PROPERTY_PHOTO_LIMIT = 6;
+function handlePropertyPhotos(input) {
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  const remaining = PROPERTY_PHOTO_LIMIT - pfPhotosWorking.length;
+  if (remaining <= 0) {
+    document.getElementById('pf-photos-filename').textContent = `Limit reached (max ${PROPERTY_PHOTO_LIMIT} photos)`;
+    return;
+  }
+  const toProcess = files.slice(0, remaining);
+  document.getElementById('pf-photos-filename').textContent = toProcess.length === 1 ? toProcess[0].name : `${toProcess.length} photo${toProcess.length!==1?'s':''} selected`;
+  if (files.length > remaining) {
+    document.getElementById('pf-photos-filename').textContent += ` (only ${remaining} more allowed, max ${PROPERTY_PHOTO_LIMIT} total)`;
+  }
+  toProcess.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 800;
+        let w = img.width, h = img.height;
+        if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        pfPhotosWorking.push(canvas.toDataURL('image/jpeg', 0.75));
+        renderPfPhotosPreview();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function removePfPhoto(index) {
+  pfPhotosWorking.splice(index, 1);
+  renderPfPhotosPreview();
+}
+function renderPfPhotosPreview() {
+  const strip = document.getElementById('pf-photos-preview');
+  if (!strip) return;
+  strip.innerHTML = pfPhotosWorking.map((src, i) => `
+    <div class="photo-thumb">
+      <img src="${src}" alt="Property photo ${i+1}">
+      <button class="photo-remove-btn" onclick="removePfPhoto(${i})" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+      ${i === 0 ? '<div class="photo-cover-badge">Cover</div>' : ''}
+    </div>`).join('');
+}
+
+function savePropertyForm() {
+  const id = document.getElementById('pf-id').value;
+  const title = document.getElementById('pf-title').value.trim();
+  const area = document.getElementById('pf-area').value;
+  const price = parseFloat(document.getElementById('pf-price').value);
+  const distanceKm = document.getElementById('pf-distance').value || '1.0';
+  const roomType = document.getElementById('pf-roomtype').value;
+  const genderPref = document.getElementById('pf-gender').value;
+  const bedrooms = parseInt(document.getElementById('pf-bedrooms').value) || 1;
+  const capacity = parseInt(document.getElementById('pf-capacity').value) || 1;
+  const amenities = document.getElementById('pf-amenities').value.split(',').map(a=>a.trim()).filter(Boolean);
+  const description = document.getElementById('pf-description').value.trim();
+  // Capped at PROPERTY_PHOTO_LIMIT so the synced Firestore document stays comfortably under the 1MB limit
+  const photos = pfPhotosWorking.slice(0, PROPERTY_PHOTO_LIMIT);
+  if (!title || isNaN(price)) {
+    document.getElementById('propertyFormAlert').innerHTML = `<div class="alert-box alert-error"><i class="fa-solid fa-circle-exclamation"></i> Please fill in the title and price.</div>`;
+    return;
+  }
+  let property;
+  if (id) {
+    property = getProperty(id);
+    Object.assign(property, { title, area, price, distanceKm, roomType, genderPref, bedrooms, capacity, amenities, description, photos });
+  } else {
+    property = {
+      id: genId('PROP'), landlordId: currentUser.id, title, area, price, distanceKm, roomType, genderPref,
+      bedrooms, capacity, amenities, description, verified: false, status: 'Available', photos,
+      created: new Date().toISOString(), rating: '0.0', reviewsCount: 0
+    };
+    DB.properties.push(property);
+  }
+  saveDB();
+  // Note: syncDocToFirestore catches its own errors and resolves to
+  // false rather than rejecting, so this must check the resolved value —
+  // a .catch() here would never fire and the listing would silently stay
+  // local-only with no warning to the landlord.
+  syncDocToFirestore('properties', property.id, property).then(synced => {
+    if (!synced) {
+      document.getElementById('propertyFormAlert').innerHTML = `<div class="alert-box alert-error"><i class="fa-solid fa-circle-exclamation"></i> Saved on this device only — it did not sync online. Try fewer/smaller photos, or check your connection, and try again.</div>`;
+      showSyncBanner('A property listing did not sync online — it will only be visible on this device until this is fixed.');
+    }
+  });
+  closeModal2('propertyFormModal');
+  renderLandlordProperties();
+  renderLandlordDashboard();
+}
+
+
+// ============================================================
+// GOOGLE SIGN-IN (real Firebase Auth) + modern form helpers
+// Returning users: tap Google again, OR log in with the same Google
+// email + the password they set on the "Almost there" step.
+// ============================================================
+const GOOGLE_PENDING = 'offrez_google_role';
+let googleFlowActive = !!localStorage.getItem(GOOGLE_PENDING), googleBusy = false, gProfile = null;
+const _switchTabBase = switchAuthTab;
+switchAuthTab = function(role, mode) {
+  _switchTabBase(role, mode);
+  const t = document.getElementById(role + 'TabLogin'); if (t) t.parentElement.dataset.mode = mode;
+};
+function enhancePasswordFields() {
+  document.querySelectorAll('.auth-box input[type=password]').forEach(inp => {
+    if (inp.dataset.pw) return; inp.dataset.pw = 1;
+    const w = document.createElement('div'); w.className = 'pw-wrap';
+    inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pw-eye'; b.setAttribute('aria-label', 'Show or hide password');
+    b.innerHTML = '<i class="fa-regular fa-eye"></i>';
+    b.onclick = () => { const s = inp.type === 'password'; inp.type = s ? 'text' : 'password'; b.innerHTML = '<i class="fa-regular fa-eye' + (s ? '-slash' : '') + '"></i>'; };
+    w.appendChild(b);
+  });
+}
+function setGoogleLoading(role, on) {
+  ['Login', 'Register'].forEach(p => document.getElementById(role + p + 'GoogleBtn')?.classList.toggle('loading', on));
+}
+function mobileLike() { return /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1100); }
+function googleError(err) {
+  const c = err?.code || '';
+  if (c.includes('popup-closed') || c.includes('cancelled-popup')) return null;
+  if (c.includes('unauthorized-domain')) return 'This website address is not authorised for Google sign-in yet. Ask the admin to add it in Firebase Console → Authentication → Settings → Authorized domains.';
+  if (c.includes('operation-not-allowed')) return 'Google sign-in is not enabled yet. Ask the admin to enable it in Firebase Console → Authentication → Sign-in method → Google.';
+  if (c.includes('account-exists-with-different-credential')) return 'An account with this email already exists. Log in with your email and password first.';
+  if (c.includes('network-request-failed')) return 'Network error — please check your connection and try again.';
+  if (c.includes('operation-not-supported')) return 'Google sign-in must be opened from a hosted https:// address, not a local file.';
+  return 'Google sign-in failed. Please try again.';
+}
+async function googleSignIn(role) {
+  clearAuthError(role);
+  if (!window._offrezAuth) { showAuthError(role, 'Google sign-in needs an internet connection. Please try again when online.'); return; }
+  if (googleBusy) return;
+  googleBusy = true; googleFlowActive = true; setGoogleLoading(role, true);
+  const F = window._offrezFns, provider = new F.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  localStorage.setItem(GOOGLE_PENDING, role);
+  try {
+    if (mobileLike()) { await F.signInWithRedirect(window._offrezAuth, provider); return; }
+    try {
+      const res = await F.signInWithPopup(window._offrezAuth, provider);
+      await handleGoogleUser(res.user, role);
+    } catch (e) {
+      if (/popup-blocked|operation-not-supported/.test(e.code || '')) { await F.signInWithRedirect(window._offrezAuth, provider); return; }
+      throw e;
+    }
+  } catch (err) {
+    googleFlowActive = false; localStorage.removeItem(GOOGLE_PENDING);
+    const m = googleError(err); if (m) showAuthError(role, m); else console.info('Google sign-in dismissed');
+  } finally { googleBusy = false; setGoogleLoading(role, false); }
+}
+async function resumeGoogleRedirect() {
+  const role = localStorage.getItem(GOOGLE_PENDING);
+  if (!role || !window._offrezAuth) { googleFlowActive = false; return; }
+  const F = window._offrezFns;
+  try {
+    const res = await F.getRedirectResult(window._offrezAuth);
+    const user = res?.user || window._offrezAuth.currentUser;
+    if (user) { await handleGoogleUser(user, role); return; }
+  } catch (err) { openAuth(role, 'login'); const m = googleError(err); if (m) showAuthError(role, m); }
+  googleFlowActive = false; localStorage.removeItem(GOOGLE_PENDING);
+}
+async function handleGoogleUser(user, role) {
+  const col = role === 'student' ? 'students' : 'landlords', other = role === 'student' ? 'landlords' : 'students';
+  let prof = DB[col].find(x => x.id === user.uid) || await fetchDocFromFirestore(col, user.uid);
+  if (prof) {
+    if (!DB[col].some(x => x.id === user.uid)) { DB[col].push(prof); saveDB(); }
+    googleFlowActive = false; localStorage.removeItem(GOOGLE_PENDING);
+    role === 'student' ? loginAsStudent(prof) : loginAsLandlord(prof); return;
+  }
+  const o = DB[other].find(x => x.id === user.uid) || await fetchDocFromFirestore(other, user.uid);
+  if (o) {
+    googleFlowActive = false; localStorage.removeItem(GOOGLE_PENDING);
+    await window._offrezFns.signOut(window._offrezAuth).catch(() => {});
+    openAuth(role, 'login');
+    showAuthError(role, 'This Google account is already registered as a ' + (role === 'student' ? 'landlord' : 'student') + '. Please use the ' + (role === 'student' ? 'Landlord' : 'Student') + ' portal.'); return;
+  }
+  openGoogleProfile(user, role);
+}
+function gpField(id, label, ph, type) {
+  return '<div class="field"><label>' + label + '</label><input class="input" id="' + id + '" placeholder="' + ph + '"' + (type ? ' type="' + type + '"' : '') + '></div>';
+}
+function openGoogleProfile(user, role) {
+  gProfile = { user, role };
+  document.querySelectorAll('.auth-screen').forEach(s => s.classList.remove('show'));
+  document.getElementById('gpPhoto').src = user.photoURL || LOGO_DATA_URI;
+  document.getElementById('gpName').textContent = user.displayName || 'Google account';
+  document.getElementById('gpEmail').textContent = user.email || '';
+  document.getElementById('gpSub').textContent = role === 'student' ? 'Student account — a few details to finish' : 'Landlord account — a few details to finish';
+  const pass = '<div class="field"><label>Password for email login (recommended)</label><input class="input" type="password" id="gpPass" placeholder="Min. 6 characters"><div class="gp-hint">Set one and you can log back in with <b>' + (user.email || 'your email') + '</b> + this password, or just tap Google.</div></div>';
+  document.getElementById('gpFields').innerHTML =
+    '<div class="field-row">' + gpField('gpFirst', 'First Name', 'First name') + gpField('gpLast', 'Last Name', 'Last name') + '</div>' +
+    (role === 'student'
+      ? gpField('gpReg', 'Student Registration No.', 'e.g. B123456B') + '<div class="field-row">' + gpField('gpPhone', 'Phone Number', '07X XXX XXXX') +
+        '<div class="field"><label>Gender</label><select class="input" id="gpGender"><option value="">Select</option><option>Male</option><option>Female</option></select></div></div>' + gpField('gpFaculty', 'Faculty / Programme', 'e.g. BSc Computer Science')
+      : gpField('gpBusiness', 'Business / Property Name (optional)', 'e.g. Chipadze Lodges') + '<div class="field-row">' + gpField('gpPhone', 'Phone Number', '07X XXX XXXX') + gpField('gpNid', 'National ID', 'ID Number') + '</div>') + pass;
+  const parts = (user.displayName || '').trim().split(/\s+/);
+  document.getElementById('gpFirst').value = parts.shift() || ''; document.getElementById('gpLast').value = parts.join(' ');
+  document.getElementById('gpError').style.display = 'none';
+  enhancePasswordFields();
+  document.getElementById('googleProfileScreen').classList.add('show');
+}
+async function cancelGoogleProfile() {
+  const role = gProfile?.role || 'student';
+  googleFlowActive = false; localStorage.removeItem(GOOGLE_PENDING); gProfile = null;
+  await window._offrezFns.signOut(window._offrezAuth).catch(() => {});
+  openAuth(role, 'register');
+}
+async function completeGoogleProfile() {
+  if (!gProfile || authSubmitInFlight) return;
+  const { user, role } = gProfile, v = id => document.getElementById(id).value.trim();
+  const err = m => { const e = document.getElementById('gpError'); e.querySelector('span').textContent = m; e.style.display = 'flex'; };
+  document.getElementById('gpError').style.display = 'none';
+  const fname = v('gpFirst'), lname = v('gpLast'), phone = v('gpPhone'), pw = document.getElementById('gpPass').value;
+  if (!fname || !lname || !phone) return err('Please fill in your name and phone number.');
+  if (pw && pw.length < 6) return err('Password must be at least 6 characters (or leave it blank).');
+  const email = (user.email || '').toLowerCase(), joined = new Date().toISOString();
+  let rec, col;
+  if (role === 'student') {
+    const regNumber = v('gpReg'); col = 'students';
+    if (!regNumber) return err('Please enter your Student Registration Number.');
+    if (await isStudentIdTaken(regNumber, user.uid)) return err('This Student ID is already registered on Offrez. Each student may only have one account.');
+    rec = { id: user.uid, fname, lname, regNumber, email, phone, gender: v('gpGender'), faculty: v('gpFaculty'), favorites: [], joined };
+  } else {
+    col = 'landlords';
+    rec = { id: user.uid, fname, lname, business: v('gpBusiness'), phone, nid: v('gpNid'), email, verified: false, joined };
+  }
+  rec.provider = 'google'; if (user.photoURL) rec.photoURL = user.photoURL;
+  authSubmitInFlight = true; const btn = document.getElementById('gpSubmit'); btn.classList.add('loading');
+  try {
+    DB[col].push(rec); saveDB();
+    if (!(await syncDocToFirestore(col, user.uid, rec))) showSyncBanner('Your account saved on this device only — it did not sync online. Please contact Offrez support.');
+    if (pw) {
+      try { const F = window._offrezFns; await F.linkWithCredential(user, F.EmailAuthProvider.credential(user.email, pw)); }
+      catch (e) { console.warn('Could not add email password:', e.code || e.message); }
+    }
+    googleFlowActive = false; localStorage.removeItem(GOOGLE_PENDING); gProfile = null;
+    role === 'student' ? loginAsStudent(rec) : loginAsLandlord(rec);
+  } finally { authSubmitInFlight = false; btn.classList.remove('loading'); }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function initAuthStatePersistence() {
+  if (!window._offrezAuth) return;
+  const { onAuthStateChanged } = window._offrezFns;
+  onAuthStateChanged(window._offrezAuth, async (user) => {
+    if (!user || currentUser || googleFlowActive) return; // only auto-resume if nothing is currently active
+    // Try to resume as student first, then landlord — checking the local
+    // cache first, then falling back to a direct Firestore read so this
+    // works correctly even on a brand-new device/browser session.
+    let student = DB.students.find(s => s.id === user.uid);
+    if (!student) student = await fetchDocFromFirestore('students', user.uid);
+    if (student) {
+      if (!DB.students.some(s => s.id === user.uid)) { DB.students.push(student); saveDB(); }
+      document.getElementById('splashGate').style.display = 'none';
+      loginAsStudent(student);
+      return;
+    }
+    let landlord = DB.landlords.find(l => l.id === user.uid);
+    if (!landlord) landlord = await fetchDocFromFirestore('landlords', user.uid);
+    if (landlord) {
+      if (!DB.landlords.some(l => l.id === user.uid)) { DB.landlords.push(landlord); saveDB(); }
+      document.getElementById('splashGate').style.display = 'none';
+      loginAsLandlord(landlord);
+      return;
+    }
+  });
+}
+function startOffrezApp() {
+  if (window._offrezAppStarted) return;
+  window._offrezAppStarted = true;
+  loadDB();
+  if (window._offrezFirebaseFailed) {
+    // No Firebase connection available — fall back to local demo data so the
+    // splash page and browse view aren't empty.
+    seedIfEmpty();
+    saveDB();
+  } else {
+    // Firebase is connected: the first Firestore snapshot (arriving via
+    // startFirestoreLiveSync below) is authoritative and will overwrite
+    // DB.properties/landlords/etc. anyway, so we skip local seeding here to
+    // avoid a brief flash of fake demo listings before real data loads.
+    startFirestoreLiveSync();
+  }
+  refreshSplashStats();
+  initAuthStatePersistence();
+  resumeGoogleRedirect();
+  enhancePasswordFields();
+}
+window.addEventListener('DOMContentLoaded', () => {
+  setAllLogoImages();
+  // Wait for the Firebase module script to finish initializing (it dispatches
+  // 'offrez-firebase-ready' whether it succeeds or falls back) before doing
+  // anything that depends on window._offrezAuth / window._offrezDB. On a slow
+  // mobile connection the module script can still be loading at this point,
+  // and starting the app too early was causing logins to silently fail on
+  // some Android tablets.
+  if (window._offrezAuth || window._offrezFirebaseFailed) {
+    startOffrezApp();
+  } else {
+    window.addEventListener('offrez-firebase-ready', startOffrezApp, { once: true });
+    // Safety net: if for any reason the event never fires (e.g. a script
+    // loading error that didn't throw where we expected), don't leave the
+    // user stuck on a blank splash page forever.
+    setTimeout(() => { if (!window._offrezAppStarted) startOffrezApp(); }, 4000);
+  }
+});
+</script>
+<script>window.O=window.O||{};window.O.CFG={SUPPORT_EMAIL:"support@your-domain.com"};</script>
 <script src="legal.js"></script>
-<script src="ui.js"></script>
-<script src="student.js"></script>
-<script src="landlord.js"></script>
-<script src="admin.js"></script>
-<script type="module" src="firebase-init.js"></script>
+<script>
+/* ===== Offrez v2 additions: modern icons, form validation, email-verification gate,
+   landlord safety documents, legal pages, install-as-app. ===== */
+(function () {
+  'use strict';
+  const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ---------- 1. MODERN ICONS (replaces Font Awesome without touching the app code) ---------- */
+  const FA2I = {
+    'xmark': 'x', 'circle-exclamation': 'alert', 'triangle-exclamation': 'alert', 'house-chimney': 'home', 'house': 'home', 'house-circle-xmark': 'home',
+    'calendar-check': 'calendar', 'calendar-xmark': 'calendar', 'circle-check': 'check-circle', 'house-chimney-user': 'building', 'graduation-cap': 'graduation',
+    'comments': 'message', 'comment': 'message', 'comment-slash': 'message', 'right-to-bracket': 'login', 'credit-card': 'wallet', 'user-shield': 'shield-check',
+    'user-plus': 'user-plus', 'right-from-bracket': 'logout', 'paper-plane': 'send', 'envelope': 'mail', 'envelope-circle-check': 'mail', 'bars': 'menu',
+    'receipt': 'file', 'pen': 'edit', 'magnifying-glass': 'search', 'location-dot': 'map-pin', 'gauge-high': 'grid', 'mobile-screen-button': 'smartphone',
+    'image': 'camera', 'heart-crack': 'heart', 'door-open': 'key', 'clock-rotate-left': 'clock', 'building-columns': 'building', 'eye-slash': 'eye-off',
+    'phone': 'phone', 'wallet': 'wallet', 'trash': 'trash', 'lock': 'lock', 'inbox': 'inbox', 'plus': 'plus', 'check': 'check', 'user': 'user', 'eye': 'eye',
+    'clock': 'clock', 'camera': 'camera', 'arrow-left': 'arrow-left', 'star': 'star', 'heart': 'heart'
+  };
+  const SKIP = new Set(['fa-solid', 'fa-regular', 'fa-brands', 'fa-lg', 'fa-fw', 'fa-2x', 'fa-3x', 'fa-spin']);
+  function iconName(el) {
+    let n = null; for (const c of el.classList) { if (c.startsWith('fa-') && !SKIP.has(c)) { n = c.slice(3); break; } }
+    if (!n) return null;
+    const reg = el.classList.contains('fa-regular');
+    if (n === 'star' && !reg) return 'star-fill';
+    if (n === 'heart' && !reg) return 'heart-fill';
+    if (FA2I[n]) return FA2I[n];
+    return document.getElementById('i-' + n) ? n : null;
+  }
+  function paint(el) {
+    const n = iconName(el); if (!n) return;
+    if (el.dataset.ic === n) return;
+    el.dataset.ic = n; el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><use href="#i-' + n + '"/></svg>';
+  }
+  function paintAll(root) { $$('i[class*="fa-"]', root).forEach(paint); if (root.matches && root.matches('i[class*="fa-"]')) paint(root); }
+  paintAll(document);
+  new MutationObserver(ms => {
+    for (const m of ms) {
+      if (m.type === 'attributes') { if (m.target.matches && m.target.matches('i[class*="fa-"]')) paint(m.target); continue; }
+      m.addedNodes.forEach(n => { if (n.nodeType === 1) paintAll(n); });
+    }
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+
+  /* ---------- helpers ---------- */
+  window.toast = function (msg, type) {
+    let t = $('#v2toast'); if (!t) { t = document.createElement('div'); t.id = 'v2toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+    t.className = 'show ' + (type || ''); t.innerHTML = '<i class="fa-solid fa-' + (type === 'error' ? 'circle-exclamation' : 'circle-check') + '"></i> ' + esc(msg);
+    clearTimeout(t._t); t._t = setTimeout(() => t.className = '', 3800);
+  };
+  function fieldOf(id) { const el = document.getElementById(id); return el ? (el.closest('.field') || el.closest('.check') || el.parentElement) : null; }
+  function setErr(id, msg) { const f = fieldOf(id); if (!f) return; f.classList.add('has-err'); let e = f.querySelector('.field-err'); if (!e) { e = document.createElement('div'); e.className = 'field-err'; f.appendChild(e); } e.textContent = msg; }
+  function clearErrs(scope) { $$('.has-err', scope).forEach(f => f.classList.remove('has-err')); }
+  function focusFirstErr(scope) { const f = $('.has-err', scope); if (f) { f.scrollIntoView({ block: 'center', behavior: 'smooth' }); const i = $('input,select,textarea', f); if (i) setTimeout(() => i.focus({ preventScroll: true }), 250); } }
+  document.addEventListener('input', e => { const f = e.target.closest && e.target.closest('.has-err'); if (f) f.classList.remove('has-err'); });
+  document.addEventListener('change', e => { const f = e.target.closest && e.target.closest('.has-err'); if (f) f.classList.remove('has-err'); });
+  const val = id => ((document.getElementById(id) || {}).value || '').trim();
+  const phoneOk = p => p.replace(/\D/g, '').length >= 9;
+
+  /* ---------- password strength meter ---------- */
+  document.addEventListener('input', e => {
+    const t = e.target; if (!t.matches || !t.matches('[data-meter]')) return;
+    const v = t.value; let s = 0; if (v.length >= 8) s++; if (/[A-Z]/.test(v) && /[a-z]/.test(v)) s++; if (/\d/.test(v)) s++; if (/[^A-Za-z0-9]/.test(v) || v.length >= 12) s++;
+    const m = t.closest('.field').querySelector('.pw-meter'); if (m) { m.dataset.s = v ? Math.max(1, s) : 0; m.nextElementSibling && (m.nextElementSibling.textContent = v ? ['', 'Weak', 'Fair', 'Good', 'Strong'][Math.max(1, s)] : ''); }
+  });
+
+  /* ---------- 2. REGISTER VALIDATION (inline, per-field) ---------- */
+  function passwordOk(id) {
+    const p = (document.getElementById(id) || {}).value || '';
+    if (p.length < 8) { setErr(id, 'Use at least 8 characters.'); return false; }
+    if (!/\d/.test(p) || !/[A-Za-z]/.test(p)) { setErr(id, 'Include letters and at least one number.'); return false; }
+    return true;
+  }
+  const _studentRegister = studentRegister;
+  studentRegister = function () {
+    const box = $('#studentRegisterForm'); clearErrs(box);
+    if (val('stuRegFirst').length < 2) setErr('stuRegFirst', 'Enter your first name.');
+    if (val('stuRegLast').length < 2) setErr('stuRegLast', 'Enter your last name.');
+    if (val('stuRegNumber').length < 5) setErr('stuRegNumber', 'Enter your student registration number.');
+    if (!isValidEmail(val('stuRegEmail'))) setErr('stuRegEmail', 'Enter a valid email address.');
+    if (!phoneOk(val('stuRegPhone'))) setErr('stuRegPhone', 'Enter a valid mobile number.');
+    if (!val('stuRegGender')) setErr('stuRegGender', 'Please select your gender.');
+    passwordOk('stuRegPass');
+    if (!$('#stuRegTerms').checked) setErr('stuRegTerms', 'Please accept the Terms and Privacy Policy.');
+    if ($('.has-err', box)) return focusFirstErr(box);
+    return _studentRegister();
+  };
+  const _landlordRegister = landlordRegister;
+  landlordRegister = function () {
+    const box = $('#landlordRegisterForm'); clearErrs(box);
+    if (val('llRegFirst').length < 2) setErr('llRegFirst', 'Enter your first name.');
+    if (val('llRegLast').length < 2) setErr('llRegLast', 'Enter your last name.');
+    if (!phoneOk(val('llRegPhone'))) setErr('llRegPhone', 'Enter a valid mobile number.');
+    if (val('llRegNid').length < 6) setErr('llRegNid', 'Enter your National ID number.');
+    if (!isValidEmail(val('llRegEmail'))) setErr('llRegEmail', 'Enter a valid email address.');
+    passwordOk('llRegPass');
+    const k = readKyc('reg', true);
+    if (!$('#llRegTerms').checked) setErr('llRegTerms', 'Please accept the Terms, Privacy Policy and Child Safety Code.');
+    if ($('.has-err', box)) return focusFirstErr(box);
+    window.pendingKyc = { email: val('llRegEmail').toLowerCase(), data: k.data, docs: k.docs };
+    return _landlordRegister();
+  };
+
+  /* ---------- 3. LANDLORD SAFETY DOCUMENTS (KYC) ---------- */
+  const DOCS = [
+    ['idFront', 'National ID: front', 'All corners visible', 'id-card'], ['idBack', 'National ID: back', 'All corners visible', 'id-card'],
+    ['selfie', 'Selfie holding your ID', 'Face and ID both readable', 'camera'], ['ownership', 'Proof of ownership / authority', 'Title deed, rates bill, lease or agent letter', 'file'],
+    ['police', 'Police clearance certificate', 'Issued within the last 12 months', 'shield-check']
+  ];
+  const KYC = { reg: {}, mod: {} };
+  function kycField(p, id, label, icon, extra) {
+    extra = extra || {}; const full = p + '_' + id;
+    const ctl = extra.options
+      ? `<select class="input with-icon" id="${full}">${extra.options.map(o => `<option>${esc(o)}</option>`).join('')}</select>`
+      : `<input class="input with-icon" id="${full}" type="${extra.type || 'text'}" placeholder="${esc(extra.ph || '')}" value="${esc(extra.val || '')}" ${extra.max ? `max="${extra.max}"` : ''}>`;
+    return `<div class="field"><label for="${full}">${label}</label><div class="field-icon-wrap"><i class="fa-solid fa-${icon}"></i>${ctl}</div></div>`;
+  }
+  window.kycHtml = function (p, pre) {
+    pre = pre || {}; const v = pre.verification || {}; const adultMax = new Date(Date.now() - 18 * 365.25 * 864e5).toISOString().slice(0, 10);
+    return `<div class="kyc-note"><i class="fa-solid fa-shield"></i><div><b>Why we ask for this.</b> Many students are 17–19 years old. Every landlord is identity-checked before students see them as verified. Your documents are visible only to the verification team and handled under our <a onclick="showLegal('privacy')">Privacy Policy</a>.</div></div>
+    <div class="kyc-sec"><h4>Identity &amp; property</h4>
+      ${kycField(p, 'legalName', 'Full legal name (as on ID)', 'user', { val: v.legalName || ((pre.fname || '') + ' ' + (pre.lname || '')).trim() })}
+      <div class="field-row">${kycField(p, 'idType', 'ID type', 'id-card', { options: ['National ID', 'Passport', "Driver's licence"] })}${kycField(p, 'dob', 'Date of birth', 'calendar', { type: 'date', max: adultMax, val: v.dob })}</div>
+      ${kycField(p, 'address', 'Your home address', 'map-pin', { ph: 'Street, suburb, town', val: v.address })}
+      ${kycField(p, 'relationship', 'Relationship to the property', 'key', { options: ['Owner', 'Agent / caretaker with written authority', 'Family member of the owner'] })}
+      ${kycField(p, 'propertyAddress', 'Property address', 'building', { ph: 'Stand number, street, suburb', val: v.propertyAddress })}</div>
+    <div class="kyc-sec"><h4>Documents</h4><p class="kyc-hint">Clear, well-lit photos. Files are compressed automatically.</p>
+      <div class="drop-grid">${DOCS.map(d => `<div class="field" data-doc="${p}_${d[0]}"><label>${d[1]}</label><label class="drop" for="${p}_f_${d[0]}"><i class="fa-solid fa-${d[3]}"></i><b>Tap to add photo</b><span>${d[2]}</span><input type="file" accept="image/*" id="${p}_f_${d[0]}" data-kyc="${p}|${d[0]}" ${d[0] === 'selfie' ? 'capture="user"' : ''}></label></div>`).join('')}</div></div>
+    <div class="kyc-sec"><h4>Contacts</h4><p class="kyc-hint">Used only to confirm who you are or if there is a safety concern.</p>
+      <div class="field-row">${kycField(p, 'emName', 'Emergency contact name', 'user')}${kycField(p, 'emPhone', 'Emergency phone', 'phone', { type: 'tel' })}</div>
+      <div class="field-row">${kycField(p, 'refName', 'Character reference', 'users', { ph: 'Pastor, headmaster, councillor…' })}${kycField(p, 'refPhone', 'Reference phone', 'phone', { type: 'tel' })}</div></div>
+    <div class="kyc-sec"><h4>Safety declarations</h4>
+      <label class="check"><input type="checkbox" id="${p}_d1"><span>Everything I submitted is genuine and belongs to me. Forged documents lead to a permanent ban and a police report.</span></label>
+      <label class="check"><input type="checkbox" id="${p}_d2"><span>Nobody who lives at or has access to the property has been convicted of an offence against a child or any sexual offence, and I will report any concern immediately.</span></label>
+      <label class="check"><input type="checkbox" id="${p}_d3"><span>I agree to the <a onclick="showLegal('safety')">Child Safety Code of Conduct</a> and to reasonable inspections.</span></label></div>`;
+  };
+  document.addEventListener('change', async e => {
+    const inp = e.target; if (!inp.matches || !inp.matches('input[data-kyc]') || !inp.files[0]) return;
+    const [p, kind] = inp.dataset.kyc.split('|'); const drop = inp.closest('.drop');
+    try {
+      const data = await compressImage(inp.files[0], 1400, .75, 300); KYC[p][kind] = data;
+      drop.classList.add('has'); drop.innerHTML = `<img src="${data}" alt="Selected document"><span class="drop-ok"><i class="fa-solid fa-check"></i> Added</span>`; drop.appendChild(inp);
+      fieldOf(p + '_f_' + kind).classList.remove('has-err');
+    } catch (err) { toast(err.message || 'Could not use that file.', 'error'); }
+  });
+  function compressImage(file, max, q, limitKB) {
+    return new Promise((res, rej) => {
+      if (!/^image\//.test(file.type)) return rej(new Error('Please choose an image file.'));
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        let s = Math.min(1, max / Math.max(img.width, img.height)), qq = q, out;
+        for (let i = 0; i < 6; i++) {
+          const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', qq);
+          if (out.length * .75 / 1024 <= limitKB) break; s *= .8; qq = Math.max(.5, qq - .08);
+        }
+        URL.revokeObjectURL(url); res(out);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('That image could not be read.')); };
+      img.src = url;
+    });
+  }
+  function readKyc(p, forReg) {
+    const g = id => val(p + '_' + id), out = { data: {}, docs: {} };
+    ['legalName', 'idType', 'dob', 'address', 'relationship', 'propertyAddress', 'emName', 'emPhone', 'refName', 'refPhone'].forEach(k => out.data[k] = g(k));
+    ['legalName', 'address', 'propertyAddress', 'emName', 'emPhone', 'refName', 'refPhone'].forEach(k => { if (!g(k)) setErr(p + '_' + k, 'Required.'); });
+    const dob = g('dob'); if (!dob) setErr(p + '_dob', 'Required.'); else if ((Date.now() - new Date(dob)) / (365.25 * 864e5) < 18) setErr(p + '_dob', 'Landlords must be 18 or older.');
+    DOCS.forEach(d => { if (!KYC[p][d[0]]) { const f = $(`[data-doc="${p}_${d[0]}"]`); if (f) { f.classList.add('has-err'); let e = f.querySelector('.field-err'); if (!e) { e = document.createElement('div'); e.className = 'field-err'; f.appendChild(e); } e.textContent = 'Please add this document.'; } } else out.docs[d[0]] = KYC[p][d[0]]; });
+    ['d1', 'd2', 'd3'].forEach(d => { if (!(document.getElementById(p + '_' + d) || {}).checked) setErr(p + '_' + d, 'Please accept this declaration.'); });
+    return out;
+  }
+  async function saveKyc(l, k) {
+    k = k || window.pendingKyc; if (!k) return; window.pendingKyc = null;
+    const ts = new Date().toISOString();
+    l.nid = l.nid || val('llRegNid');
+    l.verification = Object.assign({ status: 'pending', submittedAt: ts, declarations: { truth: true, childSafety: true, inspection: true, at: ts }, docs: Object.keys(k.docs), reviewNote: '' }, k.data);
+    l.verification.emergency = { name: k.data.emName, phone: k.data.emPhone }; l.verification.reference = { name: k.data.refName, phone: k.data.refPhone };
+    delete l.verification.emName; delete l.verification.emPhone; delete l.verification.refName; delete l.verification.refPhone;
+    saveDB();
+    let ok = true;
+    if (window._offrezDB) { for (const [kind, data] of Object.entries(k.docs)) ok = (await syncDocToFirestore('vfiles', l.id + '_' + kind, { id: l.id + '_' + kind, landlordId: l.id, kind, data, created: ts })) && ok; }
+    else { try { localStorage.setItem('offrez_vfiles_' + l.id, JSON.stringify(k.docs)); } catch (e) { ok = false; } }
+    await syncDocToFirestore('landlords', l.id, l);
+    toast(ok ? 'Documents submitted. We will review them shortly.' : 'Saved on this device only. They did not upload online.', ok ? '' : 'error');
+    refreshLandlordViews();
+  }
+  window.openKycModal = function () {
+    const l = getLandlord(currentUser.id); KYC.mod = {};
+    $('#kycModalBody').innerHTML = kycHtml('mod', l); openModal2('kycModal');
+  };
+  window.submitKycModal = async function () {
+    const b = $('#kycModalBody'); clearErrs(b); const k = readKyc('mod'); $$('.field-err', b);
+    if ($('.has-err', b)) return focusFirstErr(b);
+    const btn = $('#kycSubmitBtn'); btn.classList.add('loading');
+    try { await saveKyc(getLandlord(currentUser.id), { data: k.data, docs: k.docs }); closeModal2('kycModal'); } finally { btn.classList.remove('loading'); }
+  };
+  function vState(l) { return l.verified ? 'verified' : l.verification ? (l.verification.status || 'pending') : 'none'; }
+  function verifCardHtml(l) {
+    const s = vState(l), v = l.verification || {};
+    const map = { verified: ['ok', 'shield-check', 'Verified landlord', 'Students see a Verified badge on your listings.'], pending: ['wait', 'clock', 'Documents under review', 'The verification team is checking your documents. This usually takes 1–2 working days.'], rejected: ['bad', 'alert', 'Changes needed', v.reviewNote ? 'Note from the team: “' + esc(v.reviewNote) + '”' : 'Please resubmit clearer documents.'], none: ['warn', 'shield', 'Verification required', 'To keep students safe, you must submit identity and ownership documents before listing a property.'] }[s];
+    return `<div class="vcard ${map[0]}"><i class="fa-solid fa-${map[1]}"></i><div style="flex:1"><b>${map[2]}</b><p>${map[3]}</p>${s === 'none' || s === 'rejected' ? `<button class="btn btn-gold btn-sm" onclick="openKycModal()"><i class="fa-solid fa-upload"></i> ${s === 'none' ? 'Submit documents' : 'Resubmit documents'}</button>` : ''}</div></div>`;
+  }
+  function refreshLandlordViews() { if (currentUser && currentUser.role === 'landlord') { try { renderLandlordProfile(); renderLandlordDashboard(); } catch (e) { } } }
+  const _rlp = renderLandlordProfile;
+  renderLandlordProfile = function () { _rlp(); const l = getLandlord(currentUser.id); if (l) $('#landlordProfileBody').insertAdjacentHTML('afterbegin', verifCardHtml(l)); };
+  const _rld = renderLandlordDashboard;
+  renderLandlordDashboard = function () {
+    _rld(); const l = getLandlord(currentUser.id); const pg = $('#landlord-page-dashboard'); if (!l || !pg) return;
+    let b = $('.v2-vbanner', pg); if (!b) { b = document.createElement('div'); b.className = 'v2-vbanner'; pg.insertBefore(b, pg.firstChild); }
+    b.innerHTML = vState(l) === 'verified' ? '' : verifCardHtml(l);
+  };
+  const _opm = openPropertyModal;
+  openPropertyModal = function (id) {
+    const l = getLandlord(currentUser.id);
+    if (l && !id && vState(l) === 'none') { toast('Submit your verification documents before listing a property.', 'error'); return openKycModal(); }
+    return _opm(id);
+  };
+  const _lAL0 = loginAsLandlord;
+
+  /* ---------- 4. EMAIL VERIFICATION GATE ---------- */
+  let vPoll = null, vPending = null;
+  function needsVerify() {
+    const u = window._offrezAuth && window._offrezAuth.currentUser; if (!u) return null;
+    if (u.emailVerified || u.providerData.some(p => p.providerId === 'google.com')) return null; return u;
+  }
+  function openVerify(role, rec, fn, u) {
+    vPending = { role, rec, fn };
+    $$('.auth-screen').forEach(s => s.classList.remove('show')); $('#splashGate').style.display = 'none';
+    $('#verifyEmailTo').textContent = u.email; $('#verifyScreen').classList.add('show');
+    clearInterval(vPoll); vPoll = setInterval(async () => { try { await u.reload(); if (u.emailVerified) verifyCheck(true); } catch (e) { } }, 5000);
+  }
+  window.verifyCheck = async function (silent) {
+    const u = window._offrezAuth && window._offrezAuth.currentUser; if (!u || !vPending) return;
+    try { await u.reload(); } catch (e) { }
+    if (u.emailVerified) {
+      clearInterval(vPoll); try { await u.getIdToken(true); } catch (e) { }
+      $('#verifyScreen').classList.remove('show'); const p = vPending; vPending = null; toast('Email verified. Welcome to Offrez!'); p.fn(p.rec);
+    } else if (!silent) toast('Not verified yet. Open the link in your email first.', 'error');
+  };
+  let resendAt = 0;
+  window.verifyResend = async function () {
+    const u = window._offrezAuth && window._offrezAuth.currentUser; if (!u) return;
+    const wait = Math.ceil((resendAt - Date.now()) / 1000); if (wait > 0) return toast('Please wait ' + wait + 's before requesting another email.', 'error');
+    try { await window._offrezFns.sendEmailVerification(u); resendAt = Date.now() + 60000; toast('Verification email sent. Check your inbox and spam folder.'); }
+    catch (e) { toast('Could not send the email. Try again shortly.', 'error'); }
+  };
+  window.verifyLogout = async function () {
+    clearInterval(vPoll); vPending = null; try { await window._offrezFns.signOut(window._offrezAuth); } catch (e) { }
+    $('#verifyScreen').classList.remove('show'); $('#splashGate').style.display = 'flex';
+  };
+  const _lAS = loginAsStudent;
+  loginAsStudent = function (s) { const u = needsVerify(); if (u) return openVerify('student', s, _lAS, u); _lAS(s); };
+  loginAsLandlord = function (l) {
+    if (window.pendingKyc && !window._offrezAuth) saveKyc(l);
+    const u = needsVerify(); if (u) return openVerify('landlord', l, _lAL0, u); _lAL0(l);
+  };
+  showEmailVerificationNotice = function (role, email) {
+    if (role === 'landlord' && window.pendingKyc) { const l = DB.landlords.find(x => x.email === email); if (l) saveKyc(l); }
+  };
+
+  /* ---------- 5. LEGAL ---------- */
+  window.showLegal = function (k) {
+    const O = window.O || {}; const L = O.legal || {};
+    const t = { terms: 'Terms & Conditions', privacy: 'Privacy Policy', safety: 'Child Safety & Code of Conduct' }[k];
+    $('#legalTitle').textContent = t; $('#legalBody').innerHTML = L[k] || '<p>Document unavailable offline. Please reconnect.</p>'; openModal2('legalModal'); $('#legalBody').scrollTop = 0;
+  };
+
+  /* ---------- 6. INSTALL AS APP ---------- */
+  let installEvt = null; const ios = /iPhone|iPad|iPod/.test(navigator.userAgent), standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  function showInstall() { $$('.install-btn').forEach(b => b.style.display = (installEvt || (ios && !standalone)) ? 'inline-flex' : 'none'); }
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; showInstall(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; showInstall(); toast('Offrez installed. Find it on your home screen.'); });
+  window.installApp = async function () {
+    if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch (e) { } installEvt = null; showInstall(); return; }
+    $('#legalTitle').textContent = 'Install Offrez';
+    $('#legalBody').innerHTML = ios ? '<p>On iPhone or iPad:</p><ol><li>Tap the <b>Share</b> button in Safari.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>.</li></ol>' : '<p>Open your browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</p>';
+    openModal2('legalModal');
+  };
+  showInstall();
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
+  }
+  const net = () => { const b = $('#v2net'); if (b) b.classList.toggle('show', !navigator.onLine); };
+  window.addEventListener('online', net); window.addEventListener('offline', net); net();
+
+  /* nicer sync banner wording now that there is no in-app admin */
+  const _ssb = showSyncBanner; showSyncBanner = function (m) { _ssb(String(m).replace(/Ask the admin to check Firestore security rules\./, 'Please contact Offrez support.')); };
+})();
+
+// build landlord register KYC block
+document.getElementById("llRegKyc").innerHTML=kycHtml("reg",{});
+</script>
 </body>
 </html>
