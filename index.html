@@ -968,10 +968,24 @@ input,textarea,[contenteditable]{-webkit-touch-callout:default}
   #shBottomNav .nb[hidden]{display:none}
   #v2toast{bottom:calc(100px + env(safe-area-inset-bottom,0px))}
 }
-@media(max-width:600px){
-  .app-topbar .tb-meta{display:none}
-  .app-topbar-left{gap:8px}
+@media(max-width:900px){
+  #studentApp .app-topbar{flex-wrap:nowrap;gap:8px;padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:10px}
+  #studentApp .app-topbar-left{flex:1;min-width:0;gap:6px}
+  #studentApp .topbar-user{flex:1;min-width:0;gap:9px;padding:0}
+  #studentApp .topbar-user .tb-meta{display:flex;flex-direction:column;min-width:0;line-height:1.25;text-align:left}
+  #studentApp .tb-name{display:block;font:700 13px Poppins,sans-serif;color:#fff;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #studentApp .tb-role{display:block;font:600 10.5px Poppins,sans-serif;color:var(--gold-light);letter-spacing:.3px}
+  #studentApp .tb-av,#studentApp .topbar-user .av-img,#studentApp .topbar-user .av-ini{width:40px;height:40px}
+  #studentApp .app-mobile-toggle{flex:none;padding:6px 4px}
+  #studentApp .app-topbar-right{flex:none;gap:6px}
+  #studentApp .app-topbar-right .sh-bell{width:36px;height:36px}
+  #studentApp .app-topbar-right .sh-bell svg{width:18px;height:18px}
+  #studentApp .app-topbar-right .sh-lang{padding:2px}
+  #studentApp .app-topbar-right .sh-lang button{height:26px;padding:0 7px;font-size:11px}
+  #studentApp .app-logout-btn{width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center}
+  #studentApp .app-topbar-nav.mobile-open{top:calc(62px + env(safe-area-inset-top,0px))}
 }
+@media(max-width:380px){#studentApp .app-topbar-right .sh-lang button{padding:0 5px;font-size:10.5px}#studentApp .app-topbar{padding-left:10px;padding-right:10px}}
 @media(max-width:430px){.sh-loc>i:last-child{display:none}.sh-loc{padding:0 9px}}
 @media(max-width:370px){
   .sh-lang button{padding:0 7px;font-size:11px}
@@ -1007,6 +1021,38 @@ input,textarea,[contenteditable]{-webkit-touch-callout:default}
 .sh-wy .ic{width:46px;height:46px;border-radius:14px;margin-bottom:12px}
 .w1{background:#fdf1cf!important;color:#c99a04!important}.w2{background:#e6efff!important;color:#1a56d6!important}.w3{background:#dcf7e8!important;color:#12935a!important}.w4{background:#efe6ff!important;color:#7c3aed!important}
 @media(min-width:901px){.sh-grid{grid-template-columns:repeat(4,1fr)}.sh-why{grid-template-columns:repeat(2,1fr)}}
+
+/* --- phone layout polish for student pages --- */
+@media(max-width:600px){
+  #studentApp .app-content{padding-left:14px;padding-right:14px}
+  #studentApp.is-home .app-content{padding-left:0;padding-right:0}
+  #studentApp .page-head h1{font-size:22px}
+  #studentApp .filters-bar{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px;box-sizing:border-box;width:100%}
+  #studentApp .filters-bar .filter-field{min-width:0!important;width:100%}
+  #studentApp .filters-bar .filter-field:first-child,#studentApp .filters-bar .filter-field:nth-child(5),#studentApp .filters-bar .btn{grid-column:1/-1}
+  #studentApp .filters-bar select,#studentApp .filters-bar input{width:100%;min-width:0;box-sizing:border-box}
+  #studentApp .filters-bar>:nth-child(1){order:1}#studentApp .filters-bar>:nth-child(2){order:2}#studentApp .filters-bar>:nth-child(3){order:3}#studentApp .filters-bar>:nth-child(5){order:4}#studentApp .filters-bar>:nth-child(4){order:5}#studentApp .filters-bar>:nth-child(6){order:6}#studentApp .filters-bar>.btn{order:7}
+  #studentApp .listing-grid{grid-template-columns:1fr;gap:16px}
+  #studentApp .card{overflow:hidden}
+  #studentApp .table-wrap-x{-webkit-overflow-scrolling:touch}
+}
+
+@media(max-width:600px){
+  #studentApp #student-page-bookings .table-wrap-x{overflow:visible!important}
+  #studentApp #student-page-bookings .data-table,#studentApp #student-page-bookings tbody{display:block;width:100%}
+  #studentApp #student-page-bookings thead{display:none}
+  #studentApp #student-page-bookings tbody tr{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:14px 4px;border-bottom:1px solid var(--border);align-items:center}
+  #studentApp #student-page-bookings tbody tr:last-child{border-bottom:none}
+  #studentApp #student-page-bookings tbody td{display:block;padding:0;border:none;background:none}
+  #studentApp #student-page-bookings td:nth-child(1){grid-column:1;font-weight:700;color:var(--navy)}
+  #studentApp #student-page-bookings td:nth-child(3){grid-column:2;grid-row:1;font-weight:800;color:var(--navy);text-align:right}
+  #studentApp #student-page-bookings td:nth-child(2){grid-column:1/-1;color:var(--text-muted);font-size:12.5px}
+  #studentApp #student-page-bookings td:nth-child(4){grid-column:1;font-size:12.5px;color:var(--text-muted)}
+  #studentApp #student-page-bookings td:nth-child(6){display:none}
+  #studentApp #student-page-bookings td:nth-child(5){grid-column:1;grid-row:4;margin-top:4px}
+  #studentApp #student-page-bookings td:nth-child(7){grid-column:2;grid-row:4;margin-top:4px;text-align:right}
+  #studentApp #student-page-bookings tbody td[colspan]{grid-column:1/-1;text-align:center;padding:26px 8px}
+}
 @media (prefers-reduced-motion:reduce){.sh-slide img{transition:none;transform:none}.sh-bell.ring svg{animation:none}}
 
 </style>
